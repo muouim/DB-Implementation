@@ -1,0 +1,5 @@
+D:/db1/db/tests/CMakeFiles/ALL_BUILD.dir
+D:/db1/db/tests/CMakeFiles/ZERO_CHECK.dir
+D:/db1/db/tests/src/CMakeFiles/dbimpl.dir
+D:/db1/db/tests/src/CMakeFiles/udb.dir
+D:/db1/db/tests/tests/CMakeFiles/utest.dir
