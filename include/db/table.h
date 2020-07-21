@@ -121,7 +121,7 @@ class Table
       std::cout<<"____________"<<std::endl;
     }
     ~Table() {
-      Block block;
+      /*Block block;
       block.attach(buffer_);
       block.setChecksum();
       std::cout<<"block id: "<<block.blockid()<<std::endl;
@@ -130,7 +130,7 @@ class Table
       getinfo=ret_.first->second;
       if(block.blockid()>0)sortSlots(block,(int)getinfo.count);
  
-      datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);
+      datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
       free(buffer_); 
     }
     int create(char *name,RelationInfo &info);
@@ -140,6 +140,9 @@ class Table
     int insert(struct iovec *record, size_t iovcnt);
     int update(int blockid,int slotid,struct iovec *record, size_t iovcnt);
     int remove(int blockid,int slotid);
+
+
+    int getRecord(struct iovec *iov, size_t offset,size_t iovcnt, unsigned char *recordbuffer);
 
     int sortSlots(Block &block,int iovcnt) ;
     std::pair<int,int> findkey(struct iovec *key,int iovcnt);

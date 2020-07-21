@@ -84,14 +84,14 @@ TEST_CASE("db/table.h")
         root.attach(rb);
         Record record;
         int i=0;
-        for(db::Table::iterator it=table.begin(1);it!=table.end(1);++it){
-            REQUIRE(it.getblockid()==1);
+        for(db::Table::iterator it=table.begin(2);it!=table.end(2);++it){
+            REQUIRE(it.getblockid()==2);
             record=*it;
             iovec iov[3];
             unsigned char header=0;
             record.ref(iov, 3 , &header)  ;         
-            std::cout<<(char *)iov[0].iov_base<<std::endl;
-            REQUIRE(it.getslotid()==i);i++;
+            std::cout<<*(int *)iov[1].iov_base<<std::endl;
+            i++;
         }
     }
     SECTION("insert") {
@@ -105,12 +105,29 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        for(int i=0;i<100000;i++){
-
-            char temp1[9]="bbbbbbbb";
+        for(int i=0;i<1000;i++){
+            if(i==875)continue;
+            char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
-            record[0].iov_len =9;
+            record[0].iov_len =78;
+            int a[1024];
+            a[0]=i;
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+
+            table.insert(record,3);
+        }
+        for(int i=875;i<876;i++){
+            char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =78;
             int a[1024];
             a[0]=i;
             record[1].iov_base =(int *)&a[0];
@@ -175,7 +192,6 @@ TEST_CASE("db/table.h")
         record[2].iov_base =(int *)&a[5];
         record[2].iov_len = sizeof(int);
         table.insert(record,3);*/
-
 
 
         unsigned char buffer[Block::BLOCK_SIZE];
