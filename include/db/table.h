@@ -45,15 +45,12 @@ class Table
             , sloti(o.sloti)
             , table(o.table)
             , block_(o.block_)
-        {
-        }
+        {}
 
-        iterator &operator++() // 前缀
-        {
+        iterator &operator++() {//前缀
           if(this->blockid==0)return *this;
           int blockoff_=(this->blockid-1)*Block::BLOCK_SIZE + Root::ROOT_SIZE;
           int slotid_=++this->sloti;
-
           //this->table->open("test.dat");
           if(slotid_>block_.getSlotsNum()-1) {
             this->blockid=block_.getNextid();
@@ -65,53 +62,35 @@ class Table
             blockoff_+=Block::BLOCK_SIZE;
             this->table->datafile_.read(blockoff_, (char *)this->table->buffer_ ,Block::BLOCK_SIZE);
             block_.attach(this->table->buffer_);
-          }
-          return *this;          
+          }return *this;          
         }
         iterator operator++(int) { // 后缀
-    
           iterator tmp(*this);
           operator++(); // 当前的迭代器做+1
           return tmp;   // 返回的是+1之前的迭代器
         }
         void setid(int blockid_,int slotid_) {
-
           this->blockid=blockid_;
           this->sloti=slotid_;
         }
-        int getblockid() {
-          return blockid;
-        }
-        int getslotid() {
-          return sloti;
-        }
-        void openTable() {
+        int getblockid() {return blockid;}
+        int getslotid() {return sloti;}
 
-          table->open("test.dat");
-        }
-        void readTable() {
-          
-        }
-        void setTable(Table *a) {
+        void readTable() {}
+        void openTable() {table->open("test.dat");}
+        void setTable(Table *a) {table=a; }
 
-          table=a;
-          
-        }
         bool operator==(const iterator &rhs) const { 
           if(this->blockid==0&&rhs.blockid==0) return true;
           else if(this->table==rhs.table&&this->blockid==rhs.blockid&&this->sloti==rhs.sloti) return true;
           else return false;
         }
         bool operator!=(const iterator &rhs) const {
-          
           if(this->blockid==0&&rhs.blockid==0) return false;
           else if(this->blockid!=rhs.blockid||this->sloti!=rhs.sloti) return true;
           else return false;
         }
         Record &operator*() {
-
-
-          
           // 得到记录
           int offset_=Root::ROOT_SIZE+(this->blockid-1)* Block::BLOCK_SIZE+ block_.getSlot(this->sloti);
           unsigned char *rb = (unsigned char *) malloc(Block::BLOCK_SIZE);
@@ -121,9 +100,7 @@ class Table
           int ret = it.decode((char *)rb, 2);
           length = it.get();
           this->table->datafile_.read(offset_,(char *)rb,length);
-
           record.attach(rb, unsigned short(length));
-
           return record;
         }
     };
@@ -143,7 +120,19 @@ class Table
       this->buffer_ =o.buffer_;
       std::cout<<"____________"<<std::endl;
     }
-    ~Table() { free(buffer_); }
+    ~Table() {
+      Block block;
+      block.attach(buffer_);
+      block.setChecksum();
+      std::cout<<"block id: "<<block.blockid()<<std::endl;
+      std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup("test.dat");
+      db::RelationInfo getinfo;
+      getinfo=ret_.first->second;
+      if(block.blockid()>0)sortSlots(block,(int)getinfo.count);
+ 
+      datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);
+      free(buffer_); 
+    }
     int create(char *name,RelationInfo &info);
     int open(const char *name);
 
@@ -175,7 +164,7 @@ class Table
       return it_;
     }
     iterator end() {
-      
+
       iterator it_(0,0);
       it_.setTable(this);
       return it_;
@@ -183,7 +172,6 @@ class Table
 
     //指定block
     iterator begin(int Iblockid) {
-
       Root root_;
       unsigned char *rootbuffer= new unsigned char[Root::ROOT_SIZE];
       this->datafile_.read(0, (char *)rootbuffer,Root::ROOT_SIZE);
@@ -203,7 +191,6 @@ class Table
 
 
     iterator end(int Iblockid) {
-      
       Root root_;
       unsigned char *rootbuffer= new unsigned char[Root::ROOT_SIZE];
       this->datafile_.read(0, (char *)rootbuffer,Root::ROOT_SIZE);

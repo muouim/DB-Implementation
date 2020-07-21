@@ -82,7 +82,7 @@ int Table::sortSlots(Block &block,int iovcnt) {
     //取用所有主键字段
     std::vector<iovec*>deiov;
     for(int i = 0; i <block.getSlotsNum(); ++i) {
-        int offset_=Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE+block.getSlot(i);
+        /*int offset_=Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE+block.getSlot(i);//
         unsigned char tempbuffer[Block::BLOCK_SIZE]={0};
         datafile_.read(offset_,(char *)tempbuffer,2);
         size_t length = 0;
@@ -104,6 +104,30 @@ int Table::sortSlots(Block &block,int iovcnt) {
 
         std::pair<unsigned short,struct iovec>p(block.getSlot(i),iov_[getinfo.key]);
         //std::cout <<*(int *)p.second.iov_base<<" "<<p.second.iov_len<<std::endl;
+        keys.push_back(p);//这里没有问题*/
+        
+        unsigned char tempbuffer[Block::BLOCK_SIZE]={0};
+        
+        memcpy(tempbuffer,buffer_+block.getSlot(i),2);
+        size_t length = 0;
+        Integer it;Record record_;
+        struct iovec *iov_=new struct iovec[iovcnt];
+        int ret = it.decode((char *)tempbuffer, 2);
+        if (!ret) return false;
+        length = it.get();
+        unsigned char tempheader=1;
+        memcpy(tempbuffer,buffer_+block.getSlot(i),length);
+
+        record_.attach(tempbuffer, unsigned short(length));
+        record_.ref(iov_,(int)iovcnt, &header);
+        deiov.push_back(iov_);
+        
+        base[i]=new char[iov_[getinfo.key].iov_len];
+        memcpy(base[i],iov_[getinfo.key].iov_base,iov_[getinfo.key].iov_len);
+        //std::cout <<"base:"<<base[i]<<std::endl;
+
+        std::pair<unsigned short,struct iovec>p(block.getSlot(i),iov_[getinfo.key]);
+        //std::cout <<*(int *)p.second.iov_base<<" "<<p.second.iov_len<<std::endl;
         keys.push_back(p);//这里没有问题
     }
     std::cout <<"____________"<<std::endl;
@@ -114,15 +138,15 @@ int Table::sortSlots(Block &block,int iovcnt) {
     int tempslotid=0;
     for(int i=0; i<keys.size(); i++) {
         block.setSlot(tempslotid,keys[i].first);
-        std::cout <<"key:"<<(char *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
+        std::cout <<"key:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
         tempslotid++;
     }
     for(int i = 0; i <deiov.size(); i++) delete[] deiov[i];
     for(int i = 0; i <block.getSlotsNum(); i++) delete[] base[i];
     delete[] base;
 
-    block.setChecksum();
-    datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);
+    /*block.setChecksum();
+    datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
     return S_OK;
 }
 
@@ -182,7 +206,14 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                 int next=block.getNextid();
                 ret=block.allocate(&header,record,(int)iovcnt);
                 if(!ret) {//当前插入不了就分配一个新的block，改变指针，当前指向新写的，新写的指向当前的下一个
+                    sortSlots(block,(int)iovcnt);
+                    offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
+                    block.setChecksum();
+                    datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE); 
+                    
+                    
                     block.attach(buffer_);//更新当前block
+                    std::cout<<"Block number: "<<block.blockid()<<std::endl;
                     block.setNextid(root.getGarbage());
                     offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
                     datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);  
@@ -193,6 +224,10 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                     offset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
                     root.setGarbage(root.getGarbage()+1);
                     datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
+
+
+                    block.setChecksum();
+                    datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
                 }
                 else offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
             }
@@ -208,7 +243,14 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                     ret=previous_block.allocate(&header,record,(int)iovcnt);//上一个是否能插入
                     if(!ret) {
                         //都插入不了就分配一个新的block，改变指针，当前指向新写的，新写的指向当前的下一个
+                        sortSlots(block,(int)iovcnt);
+                        offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
+                        block.setChecksum();
+                        datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE); 
+        
+
                         block.attach(buffer_);//更新当前block
+                        std::cout<<"Block number: "<<block.blockid()<<std::endl;
                         block.setNextid(root.getGarbage());
                         offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
                         datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);  
@@ -219,6 +261,10 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                         offset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
                         root.setGarbage(root.getGarbage()+1);
                         datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
+
+
+                        block.setChecksum();
+                        datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE); 
                     }
                     else offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
                 }
@@ -242,23 +288,46 @@ int Table::insert(struct iovec *record, size_t iovcnt)
     
     //分配一个新的block
     if(!ret) {
+        sortSlots(block,(int)iovcnt);
+
+        offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
+        block.setChecksum();
+        datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE); 
+        
         block.attach(buffer_);
+
+        std::cout<<"Block number: "<<block.blockid()<<std::endl;
+        
+        block.setNextid(root.getGarbage());
+        block.clear(1,root.getGarbage());
+        block.allocate(&header,record,(int)iovcnt);
+        offset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;//这里好像有点问题？
+        root.setGarbage(root.getGarbage()+1);
+        datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
+        
+
+        block.setChecksum();
+        datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE); 
+        
+        /*block.attach(buffer_);
+
+        std::cout<<"Block number: "<<block.blockid()<<std::endl;
+        
         block.setNextid(root.getGarbage());
         block.clear(1,root.getGarbage());
         block.allocate(&header,record,(int)iovcnt);
         offset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
         root.setGarbage(root.getGarbage()+1);
-        datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
+        datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);*/
     }
     else offset= Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE;
     
-    block.setChecksum();
-    datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);  
+    /*block.setChecksum();
+    datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);  */
     
     //排序
-    sortSlots(block,(int)iovcnt);
     //读record
-    std::cout <<"Head "<<block.getSlot(0)<<" "<<std::endl;
+    //std::cout <<"Head "<<block.getSlot(0)<<" "<<std::endl;
     return 0;
 }
 

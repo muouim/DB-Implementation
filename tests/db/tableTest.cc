@@ -8,8 +8,31 @@
 //
 #include "../catch.hpp"
 #include <db/table.h>
+#include <time.h>
+#include <windows.h>
+#include <string.h>
+#include <iostream>
+
 using namespace db;
 
+int gettimeofday(struct timeval *tp, void *tzp){
+
+    time_t clock;
+    struct tm tm;
+    SYSTEMTIME wtm;
+    GetLocalTime(&wtm);
+    tm.tm_year = wtm.wYear - 1900;
+    tm.tm_mon = wtm.wMonth - 1;
+    tm.tm_mday = wtm.wDay;
+    tm.tm_hour = wtm.wHour;
+    tm.tm_min = wtm.wMinute;
+    tm.tm_sec = wtm.wSecond;
+    tm. tm_isdst = -1;
+    clock = mktime(&tm);
+    tp->tv_sec = (long)clock;
+    tp->tv_usec = wtm.wMilliseconds * 1000;
+    return (0);
+}
 TEST_CASE("db/table.h")
 {
     SECTION("open") {
@@ -42,7 +65,7 @@ TEST_CASE("db/table.h")
         info.path="test.dat";
         info.count=3;
         info.size=30;
-        info.key=0;
+        info.key=1;
         REQUIRE(table.create("test.dat",info)==S_OK); 
         /*std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup("test.dat");
         db::RelationInfo getinfo;
@@ -72,7 +95,41 @@ TEST_CASE("db/table.h")
         }
     }
     SECTION("insert") {
-        char temp1[9]="bbbbbbbb";
+        struct timeval start, end;
+        gettimeofday(&start,NULL);
+        Table table;
+        unsigned char rb[Root::ROOT_SIZE];
+        db::RelationInfo info;
+        table.open("test.dat");
+        table.datafile_.open("test.dat");
+        table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
+        Root root;
+        root.attach(rb);
+        for(int i=0;i<100000;i++){
+
+            char temp1[9]="bbbbbbbb";
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =9;
+            int a[1024];
+            a[0]=i;
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+
+            table.insert(record,3);
+        }
+        gettimeofday(&end,NULL);
+        double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
+        time_taken = (time_taken + (end.tv_usec -start.tv_usec)) * 1e-6;
+        printf("Insert time is %lf s\n",time_taken);
+            
+        
+        /*char temp1[9]="bbbbbbbb";
         iovec record[3];
 		record[0].iov_base =temp1;
 		record[0].iov_len =9;
@@ -94,7 +151,7 @@ TEST_CASE("db/table.h")
         Root root;
         root.attach(rb);
         table.insert(record,3);
-            
+        
         char temp2[9]="aaaaaaaa";
         record[0].iov_base =temp2;
 		record[0].iov_len =9;
@@ -117,15 +174,17 @@ TEST_CASE("db/table.h")
         a[5]=70;
         record[2].iov_base =(int *)&a[5];
         record[2].iov_len = sizeof(int);
-        table.insert(record,3);
+        table.insert(record,3);*/
+
+
+
         unsigned char buffer[Block::BLOCK_SIZE];
         unsigned int first = root.getHead();
         size_t offset = (first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
         table.datafile_.read(offset, (char *) buffer, Block::BLOCK_SIZE);
         Block block;
         block.attach(buffer);
-        
-        
+    
         std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup("test.dat");
         db::RelationInfo getinfo;
         getinfo=ret.first->second;
