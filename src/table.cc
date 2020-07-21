@@ -242,7 +242,7 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                 
                 ret=new_block.allocate(&header,record,(int)iovcnt);     
 
-                for(int i = 0; i <block.getSlotsNum();i++) {
+                for(int i = 0; i <block.getSlotsNum();) {
                 //把比记录小的全删了，再新分配block插入,找大于要插入的记录的
                     reoffset = Root::ROOT_SIZE+(current-1)*Block::BLOCK_SIZE+block.getSlot(i);
                     getRecord(iov_,reoffset,iovcnt,recordbuffer);
@@ -251,7 +251,7 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                     iov_[getinfo.key].iov_len,record[getinfo.key].iov_len)){
                         std::cout<<"find " <<i<<" "<<*(int *)iov_[getinfo.key].iov_base<<std::endl;
                         ret=new_block.allocate(&header,iov_,(int)iovcnt);
-                        remove(block.blockid(),i);
+                        remove(block.blockid(),i);//这里删了i就会前移
                     }else break;
                 }
                 offset = (root.getGarbage()-2) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
@@ -298,7 +298,8 @@ int Table::insert(struct iovec *record, size_t iovcnt)
 
         if(!dtype->compare(iov_[getinfo.key].iov_base, record[getinfo.key].iov_base,
         iov_[getinfo.key].iov_len,record[getinfo.key].iov_len))
-        for(int i = 0; i <block.getSlotsNum();i++) {
+        
+        for(int i = 0; i <block.getSlotsNum();) {
         //把比记录小的全删了，再新分配block插入,找大于要插入的记录的
             reoffset = Root::ROOT_SIZE+(block.blockid()-1)*Block::BLOCK_SIZE+block.getSlot(i);
             std::cout<<block.getSlot(i)<<std::endl;
