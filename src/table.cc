@@ -235,12 +235,12 @@ int Table::insert(struct iovec *record, size_t iovcnt)
                 datafile_.write(offset, (const char *) prebuffer, Block::BLOCK_SIZE);  
 
                 new_block.clear(1,root.getGarbage());//初始化，写入下一个
-                new_block.setNextid(next);
+                new_block.setNextid(current);
 
                 root.setGarbage(root.getGarbage()+1);
                 datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
                 
-                ret=new_block.allocate(&header,record,(int)iovcnt);     
+                ret=new_block.allocate(&header,record,(int)iovcnt); //多插入了一个    
 
                 for(int i = 0; i <block.getSlotsNum();) {
                 //把比记录小的全删了，再新分配block插入,找大于要插入的记录的

@@ -84,13 +84,16 @@ TEST_CASE("db/table.h")
         root.attach(rb);
         Record record;
         int i=0;
-        for(db::Table::iterator it=table.begin(8);it!=table.end(8);++it){
-            REQUIRE(it.getblockid()==8);
+        for(db::Table::iterator it=table.begin();it!=table.end();++it){
+            //REQUIRE(it.getblockid()==8);
             record=*it;
             iovec iov[3];
             unsigned char header=0;
             record.ref(iov, 3 , &header)  ;         
             std::cout<<*(int *)iov[1].iov_base<<std::endl;
+
+            std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<std::endl;
+
             i++;
         }
     }

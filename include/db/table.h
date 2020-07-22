@@ -49,19 +49,22 @@ class Table
 
         iterator &operator++() {//前缀
           if(this->blockid==0)return *this;
-          int blockoff_=(this->blockid-1)*Block::BLOCK_SIZE + Root::ROOT_SIZE;
+          size_t blockoff_=(this->blockid-1)*Block::BLOCK_SIZE + Root::ROOT_SIZE;
           int slotid_=++this->sloti;
+
           //this->table->open("test.dat");
-          if(slotid_>block_.getSlotsNum()-1) {
+          if(slotid_>this->block_.getSlotsNum()-1) {
             this->blockid=block_.getNextid();
             if(this->blockid==0)this->sloti=0;
             this->sloti=0;
-            Table table;
-            table.open("test.dat");
-            this->table=&table;
-            blockoff_+=Block::BLOCK_SIZE;
-            this->table->datafile_.read(blockoff_, (char *)this->table->buffer_ ,Block::BLOCK_SIZE);
-            block_.attach(this->table->buffer_);
+            Table *tetable=new Table();//怎么删除
+            tetable->open("test.dat");
+            blockoff_=(this->blockid-1)*Block::BLOCK_SIZE + Root::ROOT_SIZE;
+            tetable->datafile_.read(blockoff_, (char *)tetable->buffer_ ,Block::BLOCK_SIZE);            
+            setTable(tetable);
+            this->block_.attach(this->table->buffer_);
+            std::cout<<"new number "<<this->blockid<<" "<<this->block_.getNextid()<<std::endl;
+
           }return *this;          
         }
         iterator operator++(int) { // 后缀
@@ -92,7 +95,7 @@ class Table
         }
         Record &operator*() {
           // 得到记录
-          int offset_=Root::ROOT_SIZE+(this->blockid-1)* Block::BLOCK_SIZE+ block_.getSlot(this->sloti);
+          size_t offset_=Root::ROOT_SIZE+(this->blockid-1)* Block::BLOCK_SIZE+ block_.getSlot(this->sloti);
           unsigned char *rb = (unsigned char *) malloc(Block::BLOCK_SIZE);
           this->table->datafile_.read(offset_,(char *)rb,2);
           size_t length = 0;
