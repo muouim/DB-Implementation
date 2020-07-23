@@ -113,7 +113,7 @@ TEST_CASE("db/table.h")
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
-            record[0].iov_len =78;
+            record[0].iov_len =strlen(temp1);
             int a[1024];
             a[0]=i;
             record[1].iov_base =(int *)&a[0];
