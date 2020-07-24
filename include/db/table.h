@@ -158,10 +158,11 @@ class Table
       root_.attach(rootbuffer);
       
       Block block_;
-      this->datafile_.read(Root::ROOT_SIZE, (char *)this->buffer_,Block::BLOCK_SIZE);
-      block_.attach(this->buffer_);
+
       int slotid_=0;
       int blockid_=root_.getHead();
+      this->datafile_.read(Root::ROOT_SIZE+(blockid_-1)* Block::BLOCK_SIZE, (char *)this->buffer_,Block::BLOCK_SIZE);
+      block_.attach(this->buffer_);
 
       iterator it_(blockid_,slotid_);
       it_.setTable(this);

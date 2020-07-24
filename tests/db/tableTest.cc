@@ -115,7 +115,7 @@ TEST_CASE("db/table.h")
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=i;
+            a[0]=1000-i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
@@ -132,7 +132,7 @@ TEST_CASE("db/table.h")
             record[0].iov_base =temp1;
             record[0].iov_len =78;
             int a[1024];
-            a[0]=i;
+            a[0]=1000-i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
