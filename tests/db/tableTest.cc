@@ -108,8 +108,8 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        for(int i=0;i<1000;i++){
-            if(i==875)continue;
+        /*for(int i=0;i<1000;i++){
+            if(i==2)continue;
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
@@ -126,7 +126,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }
-        for(int i=875;i<876;i++){
+        for(int i=2;i<3;i++){
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
@@ -142,7 +142,35 @@ TEST_CASE("db/table.h")
             //载入record
 
             table.insert(record,3);
+        }*/
+        bool vis[1005];
+        srand((unsigned int)time(0));
+        memset(vis, false, sizeof(vis));
+
+        for(int i=1;i<=1000;i++){
+
+            std::cout << i <<std:: endl;
+
+            char temp1[40]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =strlen(temp1);
+            int a[1024];
+            a[0] = rand()%1000+1;
+            while(vis[a[0]])    a[0] = rand()%1000+1;
+            vis[a[0]] = true;
+
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+
+            table.insert(record,3);
         }
+
         gettimeofday(&end,NULL);
         double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
         time_taken = (time_taken + (end.tv_usec -start.tv_usec)) * 1e-6;
