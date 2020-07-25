@@ -273,11 +273,11 @@ TEST_CASE("db/table.h")
 		record[0].iov_base =(char *)temp.c_str();
 		record[0].iov_len =temp.length();
         int a[3];
-        a[0]=2020;
-        record[1].iov_base = (int *)a;
+        a[0]=1002;
+        record[1].iov_base = (int *)&a[0];
         record[1].iov_len = sizeof(int);
         a[1]=70;
-        record[2].iov_base =(int *)a;
+        record[2].iov_base =(int *)&a[0];
         record[2].iov_len =sizeof(int);  
         unsigned char header=0;    
         //载入record
@@ -289,7 +289,7 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        table.update(1,2,record,3);
+        table.update(8,11,record,3);
 
         unsigned char buffer[Block::BLOCK_SIZE];
         unsigned int first = root.getHead();
@@ -306,8 +306,8 @@ TEST_CASE("db/table.h")
 		record[0].iov_base =(char *)temp.c_str();
 		record[0].iov_len =temp.length();
         int a[1024];
-        a[0]=2020;
-        record[1].iov_base =(int *)a;
+        a[0]=980;
+        record[1].iov_base =(int *)&a[0];
         record[1].iov_len = sizeof(int);
         a[1]=70;
         record[2].iov_base =(int *)&a[1];
@@ -322,8 +322,7 @@ TEST_CASE("db/table.h")
         Root root;
         root.attach(rb);
         std::pair<int,int>p=table.findkey(record,3);
-        REQUIRE(p.first==1);
-        REQUIRE(p.second==0);
+        std::cout<<"block "<<p.first<<" "<<p.second<<std::endl;;
     }  
     /*struct Compare
     {
