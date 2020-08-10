@@ -8,6 +8,8 @@
 //
 #include "../catch.hpp"
 #include <db/table.h>
+#include <db/index.h>
+
 #include <time.h>
 #include <windows.h>
 #include <string.h>
@@ -66,7 +68,33 @@ TEST_CASE("db/table.h")
         info.count=3;
         info.size=30;
         info.key=1;
+
+        db::FieldInfo indexfield;
+        db::RelationInfo indexinfo;
+
+        indexfield.name="key";
+        indexfield.index=0;
+        indexfield.length=sizeof(int);
+        indexfield.datatype="INT";
+        indexfield.type=findDataType("INT");
+        indexinfo.fields.push_back(field);
+
+        indexfield.name="nextid";
+        indexfield.index=1;
+        indexfield.length=sizeof(int);
+        indexfield.datatype="INT";
+        indexfield.type=findDataType("INT");
+        indexinfo.fields.push_back(field);
+
+        indexinfo.path="index.dat";
+        indexinfo.count=2;
+        indexinfo.size=30;
+        indexinfo.key=0;
+        
+        db::BplusTree index;
         REQUIRE(table.create("test.dat",info)==S_OK); 
+        REQUIRE(index.create("index.dat",indexinfo)==S_OK); 
+
         /*std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup("test.dat");
         db::RelationInfo getinfo;
         getinfo=ret.first->second;
@@ -91,15 +119,15 @@ TEST_CASE("db/table.h")
             unsigned char header=0;
             record.ref(iov, 3 , &header)  ;         
             std::cout<<*(int *)iov[1].iov_base<<std::endl;
-
             std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<std::endl;
-
             i++;
         }
     }
     SECTION("insert") {
         struct timeval start, end;
         gettimeofday(&start,NULL);
+        
+        
         Table table;
         unsigned char rb[Root::ROOT_SIZE];
         db::RelationInfo info;
@@ -108,14 +136,14 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        /*for(int i=0;i<1000;i++){
-            if(i==2)continue;
+        for(int i=0;i<1000;i++){
+            //if(i==2)continue;
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=1000-i;
+            a[0]=i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
@@ -126,7 +154,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }
-        for(int i=2;i<3;i++){
+        /*for(int i=2;i<3;i++){
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
@@ -143,7 +171,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }*/
-        bool vis[1005];
+        /*bool vis[1005];
         srand((unsigned int)time(0));
         memset(vis, false, sizeof(vis));
 
@@ -152,6 +180,7 @@ TEST_CASE("db/table.h")
             std::cout << i <<std:: endl;
 
             char temp1[40]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
             iovec record[3];
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
@@ -162,6 +191,8 @@ TEST_CASE("db/table.h")
 
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
+
+
             a[1]=90;
             record[2].iov_base =(int *)&a[1];
             record[2].iov_len = sizeof(int);
@@ -169,7 +200,7 @@ TEST_CASE("db/table.h")
             //载入record
 
             table.insert(record,3);
-        }
+        }*/
 
         gettimeofday(&end,NULL);
         double time_taken = (end.tv_sec - start.tv_sec) * 1e6;

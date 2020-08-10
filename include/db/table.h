@@ -11,6 +11,8 @@
 #include <db/file.h>
 #include <db/block.h>
 #include <db/schema.h>
+#include <db/index.h>
+
 #include "./config.h"
 
 namespace db {
@@ -55,7 +57,9 @@ class Table
           //this->table->open("test.dat");
           if(slotid_>this->block_.getSlotsNum()-1) {
             this->blockid=block_.getNextid();
-            if(this->blockid==0)this->sloti=0;
+            if(this->blockid==0) {
+              this->sloti=0;return *this;
+            }
             this->sloti=0;
             Table *tetable=new Table();//怎么删除
             tetable->open("test.dat");
@@ -114,6 +118,8 @@ class Table
   public:
     // 打开一张表
     File datafile_;
+    db::BplusTree index;
+
     Table() {
       buffer_ = (unsigned char *) malloc(Block::BLOCK_SIZE);
     }

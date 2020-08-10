@@ -14,7 +14,7 @@ string(REGEX REPLACE "-fno-exceptions" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 if (WIN32)
     set(TEST test.cc db/integerTest.cc db/checksumTest.cc db/fileTest.cc
     db/schemaTest.cc  db/tableTest.cc db/blockTest.cc db/recordTest.cc db/datatypeTest.cc
-    db/timestampTest.cc)
+    db/timestampTest.cc db/indexTest.cc)
     add_executable(utest ${TEST})
     add_dependencies(utest dbimpl)
     target_link_libraries(utest dbimpl)

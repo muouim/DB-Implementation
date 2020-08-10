@@ -11,6 +11,8 @@
 
 namespace db {
 
+
+
 void Block::clear(int spaceid, int blockid)
 {
     spaceid = htobe32(spaceid);

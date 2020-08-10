@@ -58,7 +58,7 @@ void initial() {
 
 void insert(std::vector<RowData> rows){
 
-	db::Table table;
+	/*db::Table table;
 	db::RelationInfo info;
 	db::File test;
 	iovec record;
@@ -71,7 +71,7 @@ void insert(std::vector<RowData> rows){
 		record.iov_base =(char *)temp.c_str();
 		record.iov_len =temp.size();
 		table.insert(&record,1);
-	}
+	}*/
 
 
 }
