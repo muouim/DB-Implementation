@@ -12,6 +12,8 @@ class BplusTree
 
   protected:
     unsigned char *buffer_; // block对应的buffer
+    unsigned char *rb;
+
     RelationInfo *relationinfo;
     int root_;
     size_t IndexBlockCnt;
@@ -29,6 +31,7 @@ class BplusTree
 
     BplusTree() {
       buffer_ = (unsigned char *) malloc(Block::BLOCK_SIZE);
+      rb = (unsigned char *) malloc(Block::BLOCK_SIZE);
     }
     BplusTree(const BplusTree &o) {
       buffer_ = (unsigned char *) malloc(Block::BLOCK_SIZE);
@@ -46,9 +49,11 @@ class BplusTree
         return S_OK;
     }
     std::pair<int,int> search(struct iovec *record, size_t iovcnt);
-    int insert(struct iovec *record, size_t iovcnt);
+    int insert(struct iovec *record, size_t iovcnt,int change ,int rightid);
     int remove(struct iovec *record, size_t iovcnt);
     int remove(Block &block,int slotid);
+    int update(struct iovec *record, size_t iovcnt,struct iovec *newrecord);
+    int update(int blockid,int slotid,struct iovec *record, size_t iovcnt);
 
     int sortSlots(Block &block,int iovcnt);
     int getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *recordbuffer,unsigned char *header);

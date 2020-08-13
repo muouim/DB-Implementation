@@ -99,21 +99,28 @@ class Table
         }
         Record &operator*() {
           // 得到记录
-          size_t offset_=Root::ROOT_SIZE+(this->blockid-1)* Block::BLOCK_SIZE+ block_.getSlot(this->sloti);
+          size_t offset_=Root::ROOT_SIZE+(this->blockid-1)* Block::BLOCK_SIZE;
+
+          size_t reoffset_=block_.getSlot(this->sloti);
           unsigned char *rb = (unsigned char *) malloc(Block::BLOCK_SIZE);
-          this->table->datafile_.read(offset_,(char *)rb,2);
+          unsigned char *rerb = (unsigned char *) malloc(Block::BLOCK_SIZE);
+          this->table->datafile_.read(offset_,(char *)rb,Block::BLOCK_SIZE);
+
+          memcpy(rerb,rb+reoffset_,2);
           size_t length = 0;
           Integer it;
-          int ret = it.decode((char *)rb, 2);
+          int ret = it.decode((char *)rerb, 2);
           length = it.get();
-          this->table->datafile_.read(offset_,(char *)rb,length);
-          record.attach(rb, unsigned short(length));
+          memcpy(rerb,rb+reoffset_,length);
+          record.attach(rerb, unsigned short(length));
           return record;
         }
     };
     friend struct iterator;
   private:
     unsigned char *buffer_; // block，TODO: 缓冲模块
+    unsigned char *rb;
+    unsigned char *indexrb;
 
   public:
     // 打开一张表
@@ -122,6 +129,8 @@ class Table
 
     Table() {
       buffer_ = (unsigned char *) malloc(Block::BLOCK_SIZE);
+      rb = (unsigned char *) malloc(Root::ROOT_SIZE);
+      indexrb = (unsigned char *) malloc(Root::ROOT_SIZE);
     }
     Table(const Table &o) {
       buffer_ = (unsigned char *) malloc(Block::BLOCK_SIZE);
@@ -142,7 +151,7 @@ class Table
       datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
       free(buffer_); 
     }
-    int create(char *name,RelationInfo &info);
+    int create(char *name,RelationInfo &info,char *indexname,RelationInfo &indexinfo);
     int open(const char *name);
 
     // 插入一条记录

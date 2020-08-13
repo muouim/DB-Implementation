@@ -91,9 +91,7 @@ TEST_CASE("db/table.h")
         indexinfo.size=30;
         indexinfo.key=0;
         
-        db::BplusTree index;
-        REQUIRE(table.create("test.dat",info)==S_OK); 
-        REQUIRE(index.create("index.dat",indexinfo)==S_OK); 
+        REQUIRE(table.create("test.dat",info,"index.dat",indexinfo)==S_OK); 
 
         /*std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup("test.dat");
         db::RelationInfo getinfo;
@@ -119,8 +117,8 @@ TEST_CASE("db/table.h")
             unsigned char header=0;
             record.ref(iov, 3 , &header)  ;         
             std::cout<<*(int *)iov[1].iov_base<<std::endl;
+            //REQUIRE(*(int *)iov[1].iov_base==++i);
             std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<std::endl;
-            i++;
         }
     }
     SECTION("insert") {
@@ -136,14 +134,14 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        for(int i=0;i<1000;i++){
-            //if(i==2)continue;
+        /*for(int i=0;i<1000;i++){
+            if(i==2)continue;
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=i;
+            a[0]=1000-i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
@@ -154,7 +152,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }
-        /*for(int i=2;i<3;i++){
+        for(int i=2;i<3;i++){
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
@@ -171,7 +169,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }*/
-        /*bool vis[1005];
+        bool vis[1005];
         srand((unsigned int)time(0));
         memset(vis, false, sizeof(vis));
 
@@ -179,7 +177,12 @@ TEST_CASE("db/table.h")
 
             std::cout << i <<std:: endl;
 
-            char temp1[40]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
             iovec record[3];
             record[0].iov_base =temp1;
@@ -200,7 +203,7 @@ TEST_CASE("db/table.h")
             //载入record
 
             table.insert(record,3);
-        }*/
+        }
 
         gettimeofday(&end,NULL);
         double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
