@@ -134,14 +134,19 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        /*for(int i=0;i<1000;i++){
-            if(i==2)continue;
-            char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        /*for(int i=0;i<100000;i++){
+            //if(i==2)continue;
+            char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=1000-i;
+            a[0]=i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
@@ -152,7 +157,7 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }
-        for(int i=2;i<3;i++){
+        /*for(int i=2;i<3;i++){
             char temp1[78]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
             iovec record[3];
             record[0].iov_base =temp1;
@@ -169,11 +174,11 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }*/
-        bool vis[1005];
+        bool vis[32000+5];
         srand((unsigned int)time(0));
         memset(vis, false, sizeof(vis));
 
-        for(int i=1;i<=1000;i++){
+        for(int i=1;i<=32000;i++){
 
             std::cout << i <<std:: endl;
 
@@ -188,8 +193,8 @@ TEST_CASE("db/table.h")
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0] = rand()%1000+1;
-            while(vis[a[0]])    a[0] = rand()%1000+1;
+            a[0] = rand()%32000+1;
+            while(vis[a[0]])    a[0] = rand()%32000+1;
             vis[a[0]] = true;
 
             record[1].iov_base =(int *)&a[0];

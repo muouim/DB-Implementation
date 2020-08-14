@@ -74,7 +74,7 @@ bool compare(std::pair<unsigned short,struct iovec> x,  std::pair<unsigned short
     //比较
     return dtype->compare(x.second.iov_base,y.second.iov_base,x.second.iov_len,y.second.iov_len);
 }
-int Table::sortSlots(Block &block,int iovcnt) {
+int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
 
     //载入relationinfo    
     std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(tablename.c_str());
@@ -91,10 +91,9 @@ int Table::sortSlots(Block &block,int iovcnt) {
 
     //取用所有主键字段
     std::vector<iovec*>deiov;
-    for(int i = 0; i <block.getSlotsNum(); ++i) {
-        
+    for(int i = 0; i <block.getSlotsNum(); i++) {
         reoffset = block.getSlot(i);
-        getRecord(iov_,reoffset,iovcnt,recordbuffer);
+        getRecord(iov_,reoffset,iovcnt,sortbuffer,recordbuffer);
         
         base[i]=new char[iov_[getinfo.key].iov_len];
         memcpy(base[i],iov_[getinfo.key].iov_base,iov_[getinfo.key].iov_len);
@@ -116,6 +115,7 @@ int Table::sortSlots(Block &block,int iovcnt) {
         tempslotid++;
     }
     for(int i = 0; i <block.getSlotsNum(); i++) delete[] base[i];
+    delete []iov_;
     delete[] base;
 
     /*block.setChecksum();
@@ -133,7 +133,6 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
     db::Root root;root.attach(rb);
     
     unsigned char newbuffer[Block::BLOCK_SIZE];
-    unsigned char tmpbuffer[Block::BLOCK_SIZE];
 
     //TODO:怎么载入想要插入record的BLOCK？
     db::Block block;
@@ -158,11 +157,10 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
     int blockid=tmpair.first;
     int change=tmpair.second;//是否改变索引右指针
 
-    std::cout<<"Insert "<<a<<" "<<blockid<<std::endl;
+    //std::cout<<"Insert "<<a<<" "<<blockid<<std::endl;
 
     offset = (blockid - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
     datafile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
-    memcpy(tmpbuffer,buffer_,Block::BLOCK_SIZE);
 
     block.attach(buffer_);
     db::Block newblock;newblock.attach(newbuffer);
@@ -176,10 +174,10 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
     if(!ret) {//无法插入：直接分裂 从中间劈开，保留左边的，右边新建一个block
         int left=block.getSlotsNum()/2;
         reoffset = block.getSlot(left);//获取中间左指针
-        getRecord(tmpiov_,reoffset,iovcnt,recordbuffer);
+        getRecord(tmpiov_,reoffset,iovcnt,buffer_,recordbuffer);
 
         if(dtype->compare(record[getinfo.key].iov_base,tmpiov_[getinfo.key].iov_base
-            ,record[getinfo.key].iov_len,tmpiov_[getinfo.key].iov_len)) //判断是插入左block还是右block
+        ,record[getinfo.key].iov_len,tmpiov_[getinfo.key].iov_len)) //判断是插入左block还是右block
             flag=0;
         else flag=1;
 
@@ -189,46 +187,33 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
         std::cout<<"New Block id: "<<garbage<<std::endl;
 
         newblock.clear(1,root.getGarbage());//新分裂右block
-        newblock.setNextid(nextid);//右指针
-        for(int i=left;i<block.getSlotsNum();i++) {
+        newblock.setNextid(nextid);//
+        for(int i=left+1;i<block.getSlotsNum();i++) {
             reoffset = block.getSlot(i);
-            getRecord(iov_,reoffset,iovcnt,recordbuffer);
+            getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
             ret=newblock.allocate(&header,iov_,(int)iovcnt);
         }
         newoffset = (garbage-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
         if(flag==1) {
             newblock.allocate(&header,record,(int)iovcnt);
-            memcpy(buffer_,newbuffer,Block::BLOCK_SIZE);
-            sortSlots(newblock,(int)iovcnt);
-            if(datafile_.write(newoffset, (const char *) buffer_, Block::BLOCK_SIZE))
-            datafile_.write(newoffset, (const char *) buffer_, Block::BLOCK_SIZE);
-
-            memcpy(buffer_,tmpbuffer,Block::BLOCK_SIZE);
+            sortSlots(newblock,(int)iovcnt,newbuffer);
         }
-        else {
-            datafile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
-        }
+        datafile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
         root.setGarbage(root.getGarbage()+1);
 
-
         newblock.clear(1,block.blockid());//左block不新开，覆盖原来的block
-        newblock.setNextid(garbage);//右指针
-        for(int i=0;i<left;i++) {
+        newblock.setNextid(garbage);//
+        for(int i=0;i<left+1;i++) {
             reoffset = block.getSlot(i);
-            getRecord(iov_,reoffset,iovcnt,recordbuffer);
+            getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
             ret=newblock.allocate(&header,iov_,(int)iovcnt);
         }
         newoffset = (currentid-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
         if(flag==0) {
             newblock.allocate(&header,record,(int)iovcnt);
-            memcpy(buffer_,newbuffer,Block::BLOCK_SIZE);
-            sortSlots(newblock,(int)iovcnt);
-            if(datafile_.write(newoffset, (const char *) buffer_, Block::BLOCK_SIZE))
-            datafile_.write(newoffset, (const char *) buffer_, Block::BLOCK_SIZE);
+            sortSlots(newblock,(int)iovcnt,newbuffer);
         }
-        else {
-            datafile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
-        }
+        datafile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
         datafile_.write(0, (const char *) rb, Root::ROOT_SIZE);
 
         a=*(int *)tmpiov_[getinfo.key].iov_base;
@@ -237,11 +222,10 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
         indexiov_[1].iov_base=&currentid;//左指针指向当前block
         indexiov_[1].iov_len=sizeof(int);
 
-        if(change==-1)index.insert(indexiov_,2,change,garbage);//如果是右指针改变nextid change=-1 
-        else index.insert(indexiov_,2,change,garbage);//change>=0,需要改变原来的指针指向garbage
+        index.insert(indexiov_,2,change,garbage);//如果是右指针改变nextid change=-1 //change>=0,需要改变原来的指针指向garbage
     }
     else {//能插入直接写入
-        sortSlots(block,(int)iovcnt);
+        sortSlots(block,(int)iovcnt,buffer_);
         block.setChecksum();
         datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
     }
@@ -254,15 +238,15 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
     //std::cout <<"Head "<<block.getSlot(0)<<" "<<std::endl;
     return S_OK;
 }
-int Table::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *recordbuffer) {
+int Table::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer) {
 
-    memcpy(recordbuffer,buffer_+offset,2);
+    memcpy(recordbuffer,tmpbuffer+offset,2);
     size_t length = 0;Integer it;Record record_;
     bool tempret = it.decode((char *) recordbuffer, 2);
         //if (!tempret) return false;
     length = it.get();
     unsigned char header=0;
-    memcpy(recordbuffer,buffer_+offset,length);
+    memcpy(recordbuffer,tmpbuffer+offset,length);
 
     record_.attach(recordbuffer, unsigned short(length));
     record_.ref(iov,(int)iovcnt, &header);
@@ -304,7 +288,7 @@ int Table::update(int blockid,int slotid,struct iovec *record, size_t iovcnt) {
         datafile_.write(offset+reoffset, (char *)uprecordbuffer,length);
         datafile_.read(offset, (char *)buffer_,Block::BLOCK_SIZE);
         block.attach(buffer_);
-        sortSlots(block,(int)iovcnt);
+        sortSlots(block,(int)iovcnt,buffer_);
         datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
         std::cout <<block.getSlot(0)<<" "<<std::endl;
     }
@@ -373,7 +357,7 @@ std::pair<int,int> Table::findkey(struct iovec *key,int iovcnt){
     while(block.getNextid()!=0) {
 
         reoffset=block.getSlot(block.getSlotsNum()-1);
-        getRecord(iov_,reoffset,iovcnt,recordbuffer);
+        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
 
         if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//和最大的相等
             std::pair<int,int> p(block.blockid(),block.getSlotsNum()-1);
@@ -387,7 +371,7 @@ std::pair<int,int> Table::findkey(struct iovec *key,int iovcnt){
             continue;
         }
         reoffset=block.getSlot(0);
-        getRecord(iov_,reoffset,iovcnt,recordbuffer);
+        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
 
         if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//和最小的相等
             std::pair<int,int> p(block.blockid(),0);

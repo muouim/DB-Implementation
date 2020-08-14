@@ -71,40 +71,27 @@ bool indexcompare(std::pair<unsigned short,struct iovec> x,  std::pair<unsigned 
     //比较
     return dtype->compare(x.second.iov_base,y.second.iov_base,x.second.iov_len,y.second.iov_len);
 }
-int BplusTree::sortSlots(Block &block,int iovcnt) {
+int BplusTree::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
 
     //载入relationinfo    
     std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(indexname.c_str());
     db::RelationInfo getinfo;
     getinfo=ret_.first->second;
 
+    size_t reoffset=0;
     std::vector<std::pair<unsigned short,struct iovec>>keys;
     unsigned char header=0;
-    std::cout <<"____________"<<std::endl;
+    //std::cout <<"____________"<<std::endl;
     char  **base=new char*[block.getSlotsNum()];
+    struct iovec *iov_=new struct iovec[iovcnt];
+    unsigned char recordbuffer[Block::BLOCK_SIZE];
     //取用所有主键字段
     std::vector<iovec*>deiov;
     for(int i = 0; i <block.getSlotsNum(); ++i) {
         
-        unsigned char recordbuffer[Block::BLOCK_SIZE]={0};
-        memcpy(recordbuffer,buffer_+block.getSlot(i),2);
-        size_t length = 0;
-        Integer it;Record record_;
-        struct iovec *iov_=new struct iovec[iovcnt];
-        int ret = it.decode((char *)recordbuffer, 2);
-        if (!ret) {
-            std::cout<<"error"<<std::endl;   
-            return false;
-        }
-        length = it.get();
-        unsigned char tempheader=1;
-        memcpy(recordbuffer,buffer_+block.getSlot(i),length);
-        memcpy(&header,recordbuffer, 1);
-
-        record_.attach(recordbuffer, unsigned short(length));
-        record_.ref(iov_,(int)iovcnt, &header);
-        deiov.push_back(iov_);
-        
+        reoffset = block.getSlot(i);
+        getRecord(iov_,reoffset,iovcnt,sortbuffer,recordbuffer,&header);
+    
         base[i]=new char[iov_[getinfo.key].iov_len];
         memcpy(base[i],iov_[getinfo.key].iov_base,iov_[getinfo.key].iov_len);
         //std::cout <<"base:"<<base[i]<<std::endl;
@@ -113,33 +100,33 @@ int BplusTree::sortSlots(Block &block,int iovcnt) {
         //std::cout <<*(int *)p.second.iov_base<<" "<<p.second.iov_len<<std::endl;
         keys.push_back(p);//这里没有问题
     }
-    std::cout <<"____________"<<std::endl;
+    //std::cout <<"____________"<<std::endl;
     for(int i = 0; i <block.getSlotsNum(); ++i) 
         keys[i].second.iov_base=base[i];
 
     std::sort(keys.begin(), keys.end(),indexcompare);
     int tempslotid=0;
-    for(int i=0; i<keys.size(); i++) {
-        block.setSlot(tempslotid,keys[i].first);
-        std::cout <<"Indexkey:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
+    for(int i=0; i<block.getSlotsNum(); i++) {
+        block.setSlot(i,keys[i].first);
+        //std::cout <<"Indexkey:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
         tempslotid++;
     }
-    for(int i = 0; i <deiov.size(); i++) delete[] deiov[i];
     for(int i = 0; i <block.getSlotsNum(); i++) delete[] base[i];
+    delete[] iov_;
     delete[] base;
 
     /*block.setChecksum();
     datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
     return S_OK;
 }
-int BplusTree::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *recordbuffer,unsigned char *header) {
+int BplusTree::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer,unsigned char *header) {
 
-    memcpy(recordbuffer,buffer_+offset,2);
+    memcpy(recordbuffer,tmpbuffer+offset,2);
     size_t length = 0;Integer it;Record record_;
     bool tempret = it.decode((char *) recordbuffer, 2);
     //if (!tempret) return false;
     length = it.get();
-    memcpy(recordbuffer,buffer_+offset,length);
+    memcpy(recordbuffer,tmpbuffer+offset,length);
     memcpy(header,recordbuffer, 1);
     record_.attach(recordbuffer, unsigned short(length));
     record_.ref(iov,(int)iovcnt, header);
@@ -156,49 +143,7 @@ bool BplusTree::adbjustafterdelete() {
 bool BplusTree::isRoot(Block &block) {
     return S_OK;
 }
-      
-std::pair<int,int> BplusTree::search(struct iovec *record, size_t iovcnt) {//header=1代表叶节点 header=0代表非叶节点，遍历时通过栈记录路径
 
-    std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(indexname.c_str());
-    db::RelationInfo getinfo;
-    getinfo=ret_.first->second;
-    DataType *dtype=findDataType(getinfo.fields[getinfo.key].datatype.c_str());//getinfo.fields[getinfo.key].type;
-    
-    std::vector <int> mystack;
-    int blockid=FindToLeaf(record,iovcnt,mystack);
-
-    int nextid=0;
-    unsigned char header=1;
-    size_t reoffset = 0;
-    unsigned char recordbuffer[Block::BLOCK_SIZE];
-
-    size_t offset = (blockid - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
-    indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
-    db::Block block;block.attach(buffer_);
-    struct iovec *iov_=new struct iovec[iovcnt];
-    if(block.getSlotsNum()==0) {
-        nextid=-1;
-        blockid=-block.getNextid();
-    }
-    else for(int i = 0; i <block.getSlotsNum();i++) {//找到刚好比key大的，然后往下迭代找，直到找到叶子节
-        reoffset = block.getSlot(i);
-        getRecord(iov_,reoffset,iovcnt,recordbuffer,&header); 
-        if(dtype->compare(record[getinfo.key].iov_base,iov_[getinfo.key].iov_base
-                    ,record[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//找到第一个比记录大的,它的左指针就是我们要找的blockid
-            blockid=*(int*)iov_[1].iov_base;
-            nextid=i;break;
-        }
-        if(i==block.getSlotsNum()-1) { //右指针,正数代表非叶节点，负数代表叶节点
-            blockid=-block.getNextid();
-            nextid=-1;
-        }
-    }
-    //返回两个，如果右边有就返回右边的，没有就回溯mystack，往回找，因为是左指针，所以是后继，
-    //不用管nextidid，如果使用nextid，可以直接使用nextid，因为是左指针
-    std::pair<int ,int> result(blockid,nextid);
-    delete [] iov_;
-    return result;
-}
 int BplusTree::FindToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> &mystack) {//找到要插入的叶子节点
 
     size_t offset=0;    
@@ -225,33 +170,77 @@ int BplusTree::FindToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> 
     struct iovec *iov_=new struct iovec[iovcnt];
     int blockid=first;
 
-    while(header==0) {
+    while(header==0) {//这个header怎么判断？？？//这里有问题
         for(int i = 0; i <block.getSlotsNum(); ++i) {
             reoffset = block.getSlot(i);
-            getRecord(iov_,reoffset,iovcnt,recordbuffer,&header);
+            getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
             
             if(dtype->compare(record[getinfo.key].iov_base,iov_[getinfo.key].iov_base
-                    ,record[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//找到第一个比记录大的
-                
-                if(header==0)blockid=*(int*)iov_[1].iov_base;//非叶节点
-                else blockid=block.blockid();
+            ,record[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//找到第一个比记录大的
+                if(header==0||block.blockid()==3){header=0;blockid=*(int*)iov_[1].iov_base;}//非叶节点
+                else {header=1;blockid=block.blockid();mystack.pop_back();}
                 break;
             }
             if(i==block.getSlotsNum()-1) {//右指针,正数代表非叶节点，负数代表叶节点
                 blockid=block.getNextid();
-                if(blockid<0) {blockid=block.blockid();header=1;break;}//说明当前的是叶节点
+                if(blockid<0) {blockid=block.blockid();header=1;mystack.pop_back();break;}//说明当前的是叶节点
                 else header=0;
+                break;
             }   
         }
-        if(header==0) {
+        if(header==0||block.blockid()==3) {
             mystack.push_back(blockid);
             offset = (blockid - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
             indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
             block.attach(buffer_);
+            header=0;
         }
     }
     delete [] iov_;
     return blockid;
+}      
+std::pair<int,int> BplusTree::search(struct iovec *record, size_t iovcnt) {//header=1代表叶节点 header=0代表非叶节点，遍历时通过栈记录路径
+
+    std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(indexname.c_str());
+    db::RelationInfo getinfo;
+    getinfo=ret_.first->second;
+    DataType *dtype=findDataType(getinfo.fields[getinfo.key].datatype.c_str());//getinfo.fields[getinfo.key].type;
+    
+    std::vector <int> mystack;
+    int blockid=FindToLeaf(record,iovcnt,mystack);
+
+    int nextid=0;
+    unsigned char header=1;
+    size_t reoffset = 0;
+    unsigned char recordbuffer[Block::BLOCK_SIZE];
+
+    size_t offset = (blockid - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
+    indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
+    db::Block block;block.attach(buffer_);
+    struct iovec *iov_=new struct iovec[iovcnt];
+
+    if(block.getSlotsNum()==0) {
+        nextid=-1;
+        blockid=block.blockid();
+    } 
+    else for(int i = 0; i <block.getSlotsNum();i++) {//找到刚好比key大的，然后往下迭代找，直到找到叶子节
+        reoffset = block.getSlot(i);
+        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header); 
+        if(dtype->compare(record[getinfo.key].iov_base,iov_[getinfo.key].iov_base
+        ,record[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//找到第一个比记录大的,它的左指针就是我们要找的blockid
+            blockid=*(int*)iov_[1].iov_base;
+            nextid=i;break;
+        }
+        if(i==block.getSlotsNum()-1) { //右指针,正数代表非叶节点，负数代表叶节点
+            blockid=-block.getNextid();
+            nextid=-1;
+        }
+    }
+    //返回两个，如果右边有就返回右边的，没有就回溯mystack，往回找，因为是左指针，所以是后继，
+    //不用管nextidid，如果使用nextid，可以直接使用nextid，因为是左指针
+    std::pair<int ,int> result(blockid,nextid);
+    delete [] iov_;
+    return result;
 }
 
 int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int rightid) {//header=1代表叶节点 header=0代表非叶节点；右指针nextid,正数代表非叶节点，负数代表叶节点
@@ -276,23 +265,21 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
     std::cout<<"Insert Block id: "<<blockid<<std::endl;
 
     unsigned char newbuffer[Block::BLOCK_SIZE];
-    unsigned char tmpbuffer[Block::BLOCK_SIZE];
     unsigned char recordbuffer[Block::BLOCK_SIZE];
     offset = (blockid - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
     indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
     db::Block block;block.attach(buffer_);
 
-    if(change==-1) {//更新
+    if(change==-1) {//更新 叶节点右指针
         std::cout<<"right"<<std::endl;
         block.setNextid(-rightid);
     }else  {
         reoffset = block.getSlot(change);
-        getRecord(iov_,reoffset,iovcnt,recordbuffer,&header);
+        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
         iov_[1].iov_base=&rightid;
         update(blockid,change,iov_,iovcnt);
         //block.attach(buffer_);
     }
-    memcpy(tmpbuffer,buffer_,Block::BLOCK_SIZE);
     db::Block newblock;newblock.attach(newbuffer);
 
     int flag=0;//0插入左边，1插入右边
@@ -304,10 +291,10 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             int left=block.getSlotsNum()/2;
 
             reoffset = block.getSlot(left);//获取中间左指针
-            getRecord(tempiov_,reoffset,iovcnt,recordbuffer,&header);
+            getRecord(tempiov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
 
             if(dtype->compare(record[getinfo.key].iov_base,tempiov_[getinfo.key].iov_base
-                    ,record[getinfo.key].iov_len,tempiov_[getinfo.key].iov_len)) //判断是插入左block还是右block
+            ,record[getinfo.key].iov_len,tempiov_[getinfo.key].iov_len)) //判断是插入左block还是右block
                 flag=0;
             else flag=1;
 
@@ -318,49 +305,43 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             newblock.setNextid(nextid);//右指针
             for(int i=0;i<left;i++) {
                 reoffset = block.getSlot(i);
-                getRecord(iov_,reoffset,iovcnt,recordbuffer,&header);
+                getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
                 ret=newblock.allocate(&header,iov_,(int)iovcnt);
             }
             newoffset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
             if(flag==0) {
                 newblock.allocate(&header,record,(int)iovcnt);//是否比当前最小的小
-                memcpy(buffer_,newbuffer,Block::BLOCK_SIZE);
-                sortSlots(newblock,2);
-                indexfile_.write(newoffset, (const char *) buffer_,Block::BLOCK_SIZE);
-                memcpy(buffer_,tmpbuffer,Block::BLOCK_SIZE);
-            }else {
-                indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
+                sortSlots(newblock,2,newbuffer);
             }
+            indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
             root.setGarbage(root.getGarbage()+1);
 
-            nextid=block.getNextid();
+            nextid=block.getNextid();//叶节点，本身就是负的，不用特判
             newblock.clear(1,block.blockid());//右block不新开，覆盖原来的block
-            if(count==0)nextid=-nextid;//叶节点
             newblock.setNextid(nextid);//右指针
             for(int i=left+1;i<block.getSlotsNum();i++) {
                 reoffset = block.getSlot(i);
-                getRecord(iov_,reoffset,iovcnt,recordbuffer,&header);
+                getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
                 ret=newblock.allocate(&header,iov_,(int)iovcnt);
             }
             newoffset = (block.blockid()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
             if(flag==1){
                 newblock.allocate(&header,record,(int)iovcnt);
-                memcpy(buffer_,newbuffer,Block::BLOCK_SIZE);
-                sortSlots(newblock,2);
-                indexfile_.write(newoffset, (const char *) buffer_, Block::BLOCK_SIZE);
-                memcpy(buffer_,tmpbuffer,Block::BLOCK_SIZE);
-            }else {
-                indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
+                sortSlots(newblock,2,newbuffer);
             }
+            indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
 
             tempiov_[1].iov_base=&garbage;
             tempiov_[1].iov_len=sizeof(int);
             header=0;
 
             if(block.blockid()==root.getHead()){//父节点,如果当前是根节点，新开一个block作为新的根节点
+
+                std::cout<<"New Root Block id: "<<root.getGarbage()<<std::endl;
                 newblock.clear(1,root.getGarbage());//新开父节点
                 newblock.setNextid(block.blockid());//右指针
                 ret=newblock.allocate(&header,tempiov_,(int)iovcnt);
+                root.setHead(root.getGarbage());
                 newoffset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
                 indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
                 root.setGarbage(root.getGarbage()+1);
@@ -370,14 +351,17 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             indexfile_.write(0, (const char *) rb, Root::ROOT_SIZE);
 
             blockid=mystack[mystack.size()-count-1];//父节点
+            std::cout<<"Fa Block id: "<<blockid<<std::endl;
+
             offset=(blockid-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
             indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
             block.attach(buffer_);
             ret=block.allocate(&header,tempiov_,(int)iovcnt);
             if(ret){
-                sortSlots(block,2);
+                sortSlots(block,2,buffer_);
                 block.setChecksum();
                 indexfile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
+                break;
             }
             else {
                 count++;//中间的往上插的记录给record
@@ -389,7 +373,7 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
         }
     }
     else  {
-        sortSlots(block,2);
+        sortSlots(block,2,buffer_);
         indexfile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
         std::cout<<"next indexid "<<block.getNextid()<<std::endl;
     }

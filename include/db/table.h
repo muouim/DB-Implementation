@@ -160,9 +160,9 @@ class Table
     int remove(int blockid,int slotid);
 
 
-    int getRecord(struct iovec *iov, size_t offset,size_t iovcnt, unsigned char *recordbuffer);
+    int getRecord(struct iovec *iov, size_t offset,size_t iovcnt, unsigned char *tmpbuffer,unsigned char *recordbuffer);
 
-    int sortSlots(Block &block,int iovcnt) ;
+    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) ;
     std::pair<int,int> findkey(struct iovec *key,int iovcnt);
     // begin, end
     iterator begin() {
