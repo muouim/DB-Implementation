@@ -55,7 +55,7 @@ class BplusTree
     int update(struct iovec *record, size_t iovcnt,struct iovec *newrecord);
     int update(int blockid,int slotid,struct iovec *record, size_t iovcnt);
 
-    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer);
+    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsigned char header);
     int getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer,unsigned char *header);
 
 };

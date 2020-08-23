@@ -219,10 +219,11 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
         a=*(int *)tmpiov_[getinfo.key].iov_base;
         indexiov_[0].iov_base =&a;        
         indexiov_[0].iov_len = tmpiov_[getinfo.key].iov_len;
-        indexiov_[1].iov_base=&currentid;//左指针指向当前block
+        int tmpid=-currentid;
+        indexiov_[1].iov_base=&tmpid;//左指针指向当前block
         indexiov_[1].iov_len=sizeof(int);
 
-        index.insert(indexiov_,2,change,garbage);//如果是右指针改变nextid change=-1 //change>=0,需要改变原来的指针指向garbage
+        index.insert(indexiov_,2,change,-garbage);//如果是右指针改变nextid change=-1 //change>=0,需要改变原来的指针指向garbage
     }
     else {//能插入直接写入
         sortSlots(block,(int)iovcnt,buffer_);

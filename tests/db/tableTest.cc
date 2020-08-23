@@ -117,7 +117,7 @@ TEST_CASE("db/table.h")
             unsigned char header=0;
             record.ref(iov, 3 , &header)  ;         
             std::cout<<*(int *)iov[1].iov_base<<std::endl;
-            //REQUIRE(*(int *)iov[1].iov_base==++i);
+            REQUIRE(*(int *)iov[1].iov_base==++i);
             std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<std::endl;
         }
     }
@@ -134,7 +134,7 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        /*for(int i=0;i<100000;i++){
+        /*for(int i=0;i<32000;i++){
             //if(i==2)continue;
             char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
             bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
@@ -146,7 +146,7 @@ TEST_CASE("db/table.h")
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=i;
+            a[0]=32000-i;
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;

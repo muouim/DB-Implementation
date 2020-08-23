@@ -150,6 +150,8 @@ class Table
  
       datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
       free(buffer_); 
+      free(rb); 
+      free(indexrb); 
     }
     int create(char *name,RelationInfo &info,char *indexname,RelationInfo &indexinfo);
     int open(const char *name);
