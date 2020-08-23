@@ -172,12 +172,6 @@ int BplusTree::FindToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> 
         for(int i = 0; i <block.getSlotsNum(); ++i) {
             reoffset = block.getSlot(i);
             getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
-            
-            if(blockid>0||block.blockid()==3){
-                //std::cout <<"bbbbbbb____________"<<(int)header<<std::endl;
-                /*header=(unsigned char)0;
-                std::cout <<"aaaaaaa____________"<<(int)header<<std::endl;*/
-            }
 
             if(dtype->compare(record[getinfo.key].iov_base,iov_[getinfo.key].iov_base
             ,record[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//找到第一个比记录大的
@@ -285,13 +279,13 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
     }
     db::Block newblock;newblock.attach(newbuffer);
 
-    int flag=0;header=0;//0插入左边，1插入右边
+    int flag=0;//0插入左边，1插入右边
     ret=block.allocate(&header,record,(int)iovcnt);//满了要分裂？怎么分裂？创建两个新的block？因为要保证两个新的block都可以插入
     if(!ret) {//分裂，插入父节点 //判断是否是root
         int count=0;
         while(!ret) {
             int garbage=root.getGarbage();
-            int left=block.getSlotsNum()/2;
+            int left=block.getSlotsNum()/2+1;
 
             reoffset = block.getSlot(left);//获取中间左指针
             getRecord(tempiov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
@@ -334,22 +328,23 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             }
             indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
 
+            reoffset = block.getSlot(left);//获取中间左指针
+            getRecord(tempiov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
             tempiov_[1].iov_base=&garbage;
             tempiov_[1].iov_len=sizeof(int);
             //header=(unsigned char )0;
-            unsigned char nheader=0;
             if(block.blockid()==root.getHead()){//父节点,如果当前是根节点，新开一个block作为新的根节点
 
-                std::cout<<(int)nheader<<" New Root Block id: "<<root.getGarbage()<<std::endl;
+                std::cout<<(int)header<<" New Root Block id: "<<root.getGarbage()<<std::endl;
                 newblock.clear(1,root.getGarbage());//新开父节点
                 newblock.setNextid(block.blockid());//右指针
-                ret=newblock.allocate(&nheader,tempiov_,(int)iovcnt);//(unsigned char)0
+                ret=newblock.allocate(&header,tempiov_,(int)iovcnt);//(unsigned char)0
                 newoffset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
                 indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
                 
                 /*reoffset = newblock.getSlot(0);//为什么取出来header就变成1
                 getRecord(tempiov_,reoffset,iovcnt,newbuffer,recordbuffer,&header);
-                std::cout<<(int)header<<" New Root Block id: "<<(nheader==header)<<std::endl;*/
+                std::cout<<(int)header<<" New Root Block id: "<<(header==header)<<std::endl;*/
 
                 root.setHead(root.getGarbage());
                 root.setGarbage(root.getGarbage()+1);
@@ -364,9 +359,9 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             offset=(blockid-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
             indexfile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
             block.attach(buffer_);
-            ret=block.allocate(&nheader,tempiov_,(int)iovcnt);
+            ret=block.allocate(&header,tempiov_,(int)iovcnt);
             if(ret){
-                sortSlots(block,2,buffer_,nheader);
+                sortSlots(block,2,buffer_,header);
                 block.setChecksum();
                 indexfile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
                 break;
@@ -375,7 +370,7 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
                 /*for(int i=0;i<iovcnt; ++i) {
                     memcpy(record[i].iov_base,tempiov_.iov_base,)
                 }*/
-                header=nheader;record=tempiov_;
+                record=tempiov_;
             }
         }
     }
