@@ -134,7 +134,77 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        /*for(int i=0;i<32000;i++){
+
+        bool vis[32000+5];
+        srand((unsigned int)time(0));
+        memset(vis, false, sizeof(vis));
+
+        for(int i=1;i<=32000;i++){
+
+            std::cout << i <<std:: endl;
+
+            char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =strlen(temp1);
+            int a[1024];
+            a[0] = rand()%32000+1;
+            while(vis[a[0]])    a[0] = rand()%32000+1;
+            vis[a[0]] = true;
+
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+
+            table.insert(record,3);
+        }
+
+        gettimeofday(&end,NULL);
+        double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
+        time_taken = (time_taken + (end.tv_usec -start.tv_usec)) * 1e-6;
+        printf("Insert time is %lf s\n",time_taken);
+
+        unsigned char buffer[Block::BLOCK_SIZE];
+        unsigned int first = root.getHead();
+        size_t offset = (first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
+        table.datafile_.read(offset, (char *) buffer, Block::BLOCK_SIZE);
+        Block block;
+        block.attach(buffer);
+    
+        std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup("test.dat");
+        db::RelationInfo getinfo;
+        getinfo=ret.first->second;
+        REQUIRE(getinfo.key==1);
+        REQUIRE(getinfo.fields[0].name=="name");
+        REQUIRE(getinfo.fields[0].datatype=="name");
+
+        REQUIRE(block.getSlotsNum()==1);
+    }
+  SECTION("insert_") {
+        struct timeval start, end;
+        gettimeofday(&start,NULL);
+        
+        
+        Table table;
+        unsigned char rb[Root::ROOT_SIZE];
+        db::RelationInfo info;
+        table.open("test.dat");
+        table.datafile_.open("test.dat");
+        table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
+        Root root;
+        root.attach(rb);
+        for(int i=0;i<32000;i++){
             //if(i==2)continue;
             char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
             bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
@@ -174,95 +244,11 @@ TEST_CASE("db/table.h")
 
             table.insert(record,3);
         }*/
-        bool vis[32000+5];
-        srand((unsigned int)time(0));
-        memset(vis, false, sizeof(vis));
-
-        for(int i=1;i<=32000;i++){
-
-            std::cout << i <<std:: endl;
-
-            char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
-            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
-            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
-            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
-            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
-            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-            iovec record[3];
-            record[0].iov_base =temp1;
-            record[0].iov_len =strlen(temp1);
-            int a[1024];
-            a[0] = rand()%32000+1;
-            while(vis[a[0]])    a[0] = rand()%32000+1;
-            vis[a[0]] = true;
-
-            record[1].iov_base =(int *)&a[0];
-            record[1].iov_len = sizeof(int);
-
-
-            a[1]=90;
-            record[2].iov_base =(int *)&a[1];
-            record[2].iov_len = sizeof(int);
-            unsigned char header=0;    
-            //载入record
-
-            table.insert(record,3);
-        }
 
         gettimeofday(&end,NULL);
         double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
         time_taken = (time_taken + (end.tv_usec -start.tv_usec)) * 1e-6;
         printf("Insert time is %lf s\n",time_taken);
-            
-        
-        /*char temp1[9]="bbbbbbbb";
-        iovec record[3];
-		record[0].iov_base =temp1;
-		record[0].iov_len =9;
-        int a[1024];
-        a[0]=2018;
-        record[1].iov_base =(int *)&a[0];
-        record[1].iov_len = sizeof(int);
-        a[1]=90;
-        record[2].iov_base =(int *)&a[1];
-        record[2].iov_len = sizeof(int);
-        unsigned char header=0;    
-        //载入record
-        Table table;
-        unsigned char rb[Root::ROOT_SIZE];
-        db::RelationInfo info;
-	    table.open("test.dat");
-        table.datafile_.open("test.dat");
-        table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
-        Root root;
-        root.attach(rb);
-        table.insert(record,3);
-        
-        char temp2[9]="aaaaaaaa";
-        record[0].iov_base =temp2;
-		record[0].iov_len =9;
-        
-        a[2]=2019;
-        record[1].iov_base =(int *)&a[2];
-        record[1].iov_len =sizeof(int);
-        
-        a[3]=80;
-        record[2].iov_base =(int *)&a[3];
-        record[2].iov_len = sizeof(int);
-        table.insert(record,3);
-
-        char temp3[18]="cccccccc";
-        record[0].iov_base =temp3;
-		record[0].iov_len =9;
-        a[4]=2020;
-        record[1].iov_base = (int *)&a[4];
-        record[1].iov_len = sizeof(int);
-        a[5]=70;
-        record[2].iov_base =(int *)&a[5];
-        record[2].iov_len = sizeof(int);
-        table.insert(record,3);*/
-
 
         unsigned char buffer[Block::BLOCK_SIZE];
         unsigned int first = root.getHead();
@@ -340,7 +326,12 @@ TEST_CASE("db/table.h")
     }  
     SECTION("find") {
 
-        std::string temp="xiaobbbbbbbbbbbbb";
+        std::string temp="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
         iovec record[3];
 		record[0].iov_base =(char *)temp.c_str();
 		record[0].iov_len =temp.length();
@@ -382,3 +373,53 @@ TEST_CASE("db/table.h")
         }
     };*/
 }
+
+            
+        
+        /*char temp1[9]="bbbbbbbb";
+        iovec record[3];
+		record[0].iov_base =temp1;
+		record[0].iov_len =9;
+        int a[1024];
+        a[0]=2018;
+        record[1].iov_base =(int *)&a[0];
+        record[1].iov_len = sizeof(int);
+        a[1]=90;
+        record[2].iov_base =(int *)&a[1];
+        record[2].iov_len = sizeof(int);
+        unsigned char header=0;    
+        //载入record
+        Table table;
+        unsigned char rb[Root::ROOT_SIZE];
+        db::RelationInfo info;
+	    table.open("test.dat");
+        table.datafile_.open("test.dat");
+        table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
+        Root root;
+        root.attach(rb);
+        table.insert(record,3);
+        
+        char temp2[9]="aaaaaaaa";
+        record[0].iov_base =temp2;
+		record[0].iov_len =9;
+        
+        a[2]=2019;
+        record[1].iov_base =(int *)&a[2];
+        record[1].iov_len =sizeof(int);
+        
+        a[3]=80;
+        record[2].iov_base =(int *)&a[3];
+        record[2].iov_len = sizeof(int);
+        table.insert(record,3);
+
+        char temp3[18]="cccccccc";
+        record[0].iov_base =temp3;
+		record[0].iov_len =9;
+        a[4]=2020;
+        record[1].iov_base = (int *)&a[4];
+        record[1].iov_len = sizeof(int);
+        a[5]=70;
+        record[2].iov_base =(int *)&a[5];
+        record[2].iov_len = sizeof(int);
+        table.insert(record,3);*/
+

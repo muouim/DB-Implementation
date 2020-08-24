@@ -332,9 +332,9 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
             getRecord(tempiov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
             tempiov_[1].iov_base=&garbage;
             tempiov_[1].iov_len=sizeof(int);
-            //header=(unsigned char )0;
-            if(block.blockid()==root.getHead()){//父节点,如果当前是根节点，新开一个block作为新的根节点
 
+            if(block.blockid()==root.getHead()) {//父节点,如果当前是根节点，新开一个block作为新的根节点
+                
                 std::cout<<(int)header<<" New Root Block id: "<<root.getGarbage()<<std::endl;
                 newblock.clear(1,root.getGarbage());//新开父节点
                 newblock.setNextid(block.blockid());//右指针
@@ -342,10 +342,6 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
                 newoffset = (root.getGarbage()-1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
                 indexfile_.write(newoffset, (const char *) newbuffer, Block::BLOCK_SIZE);
                 
-                /*reoffset = newblock.getSlot(0);//为什么取出来header就变成1
-                getRecord(tempiov_,reoffset,iovcnt,newbuffer,recordbuffer,&header);
-                std::cout<<(int)header<<" New Root Block id: "<<(header==header)<<std::endl;*/
-
                 root.setHead(root.getGarbage());
                 root.setGarbage(root.getGarbage()+1);
                 indexfile_.write(0, (const char *) rb, Root::ROOT_SIZE);

@@ -70,8 +70,7 @@ bool compare(std::pair<unsigned short,struct iovec> x,  std::pair<unsigned short
     std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(tablename.c_str());
     db::RelationInfo getinfo;
     getinfo=ret_.first->second;
-    DataType *dtype=findDataType(getinfo.fields[getinfo.key].datatype.c_str());//findDataType("INT");
-    //比较
+    DataType *dtype=findDataType(getinfo.fields[getinfo.key].datatype.c_str());//findDataType("INT")//比较
     return dtype->compare(x.second.iov_base,y.second.iov_base,x.second.iov_len,y.second.iov_len);
 }
 int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
@@ -84,24 +83,19 @@ int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
     size_t reoffset=0; 
     std::vector<std::pair<unsigned short,struct iovec>>keys;
     unsigned char header=0;
-    //std::cout <<"____________"<<std::endl;
     char  **base=new char*[block.getSlotsNum()];
     struct iovec *iov_=new struct iovec[iovcnt];
     unsigned char recordbuffer[Block::BLOCK_SIZE];
 
     //取用所有主键字段
-    std::vector<iovec*>deiov;
     for(int i = 0; i <block.getSlotsNum(); i++) {
         reoffset = block.getSlot(i);
         getRecord(iov_,reoffset,iovcnt,sortbuffer,recordbuffer);
         
         base[i]=new char[iov_[getinfo.key].iov_len];
         memcpy(base[i],iov_[getinfo.key].iov_base,iov_[getinfo.key].iov_len);
-        //std::cout <<"base:"<<base[i]<<std::endl;
-
         std::pair<unsigned short,struct iovec>p(block.getSlot(i),iov_[getinfo.key]);
-        //std::cout <<*(int *)p.second.iov_base<<" "<<p.second.iov_len<<std::endl;
-        keys.push_back(p);//这里没有问题
+        keys.push_back(p);
     }
     std::cout <<"____________"<<std::endl;
     for(int i = 0; i <block.getSlotsNum(); ++i) 
@@ -118,8 +112,6 @@ int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
     delete []iov_;
     delete[] base;
 
-    /*block.setChecksum();
-    datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
     return S_OK;
 }
 
@@ -338,70 +330,47 @@ std::pair<int,int> Table::findkey(struct iovec *key,int iovcnt){
     Root root;
     root.attach(rb);
     
-    Block block;
-    unsigned int first = root.getHead();
-    offset = (first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
-    datafile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
-    block.attach(buffer_);
-
-    unsigned char recordbuffer[Block::BLOCK_SIZE]={0};
     size_t length = 0;
     Integer it;Record record_;
     struct iovec *iov_=new struct iovec[iovcnt];
+    unsigned char recordbuffer[Block::BLOCK_SIZE]={0};
 
     std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(tablename.c_str());
     db::RelationInfo getinfo;
     getinfo=ret_.first->second;
     DataType *dtype=findDataType(getinfo.fields[getinfo.key].datatype.c_str());//getinfo.fields[getinfo.key].type;
 
-    //遍历block，取每个block第一个和最后一个key,blocknum怎么整
-    while(block.getNextid()!=0) {
+    //TODO:使用b树找到对应block
+    struct iovec *indexiov_=new struct iovec[2];
+    int a=*(int *)key[getinfo.key].iov_base;
+    indexiov_[0].iov_base =&a;        
+    indexiov_[0].iov_len = key[getinfo.key].iov_len;
+    
+    Root indexroot;
+    indexroot.attach(indexrb);
+    
+    //找到block所在的位置
+    std::pair<int, int>tmpair=index.search(indexiov_,2);
+    offset = (tmpair.first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
+    datafile_.read(offset, (char *) buffer_, Block::BLOCK_SIZE);
+    Block block;block.attach(buffer_);
 
-        reoffset=block.getSlot(block.getSlotsNum()-1);
-        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
-
-        if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//和最大的相等
-            std::pair<int,int> p(block.blockid(),block.getSlotsNum()-1);
-            return p;
-        }
-        if(dtype->compare(iov_[getinfo.key].iov_base,key[getinfo.key].iov_base,iov_[getinfo.key].iov_len,key[getinfo.key].iov_len)){//如果比最大的大，下一个
-            std::cout <<"next: "<<block.getNextid()<<" "<<std::endl;
-            offset=Root::ROOT_SIZE+(block.getNextid()-1)* Block::BLOCK_SIZE;
-            datafile_.read(offset,(char *)buffer_,Block::BLOCK_SIZE);
-            block.attach(buffer_);
-            continue;
-        }
-        reoffset=block.getSlot(0);
-        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
-
-        if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//和最小的相等
-            std::pair<int,int> p(block.blockid(),0);
-            return p;
-        }
-        if(dtype->compare(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {//比最小的小
-            std::pair<int,int> no(0,0);
-            return no;
-        }break;
-    }
-    int flag=0;
     //遍历record
+    int flag=0;
     int lower=0,big=block.getSlotsNum()-1;
+    
     while(big>=lower) {
         reoffset=block.getSlot((lower+big)/2);
-        
-        memcpy(recordbuffer,buffer_+reoffset,2);
-        ret = it.decode((char *)recordbuffer, 2);
-        length = it.get();
-        memcpy(recordbuffer,buffer_+reoffset,length);
-        record_.attach(recordbuffer, unsigned short(length));
-        record_.ref(iov_,(int)iovcnt, &header);
-        
+        getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer);
+
         std::cout <<*(int *)key[getinfo.key].iov_base<<" "<<*(int *)iov_[getinfo.key].iov_base<<std::endl;
-        if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {
+        if(dtype->equal(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,
+        key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)) {
             slotid_=(lower+big)/2;
             flag=1;break;
         }
-        if(dtype->compare(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)){
+        if(dtype->compare(key[getinfo.key].iov_base,iov_[getinfo.key].iov_base,
+        key[getinfo.key].iov_len,iov_[getinfo.key].iov_len)){
             big=(lower+big)/2-1;
             continue;
         }
