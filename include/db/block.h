@@ -35,6 +35,7 @@
 #include "./file.h"
 #include <iostream>
 #include <vector>
+#include <math.h>
 namespace db {
 
 const short BLOCK_TYPE_DATA = 0;  // 数据

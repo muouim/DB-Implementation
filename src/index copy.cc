@@ -125,7 +125,10 @@ int BplusTree::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigne
     record_.ref(iov,(int)iovcnt, header);
     return S_OK;
 }
+int BplusTree::getBrother(int fatherid,int cunrrentid) {
 
+    return S_OK;
+}
 int BplusTree::findToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> &mystack) {//找到要插入的叶子节点
 
     size_t offset=0;    
@@ -219,7 +222,7 @@ std::pair<int,int> BplusTree::search(struct iovec *record, size_t iovcnt) {//hea
     }
     //返回两个，如果右边有就返回右边的，没有就回溯mystack，往回找，因为是左指针，所以是后继，
     //不用管nextidid，如果使用nextid，可以直接使用nextid，因为是左指针
-    std::pair<int ,int> result(abs(blockid),nextid);
+    std::pair<int ,int> result(blockid,nextid);
     delete [] iov_;
     return result;
 }
@@ -254,11 +257,11 @@ int BplusTree::insert(struct iovec *record, size_t iovcnt, int change ,int right
     if(change==-1) {//更新 叶节点右指针
         std::cout<<"right"<<std::endl;
         block.setNextid(rightid);
-    }else  {
+    }else if(change>0) {
         reoffset = block.getSlot(change);
         getRecord(iov_,reoffset,iovcnt,buffer_,recordbuffer,&header);
         iov_[1].iov_base=&rightid;
-        update(blockid,change,iov_,iovcnt);
+        update(blockid,change,buffer_,iov_,iovcnt);
         //block.attach(buffer_);
     }
     db::Block newblock;newblock.attach(newbuffer);
@@ -368,11 +371,10 @@ int BplusTree::update(struct iovec *record, size_t iovcnt,struct iovec *newrecor
 
     return S_OK;
 }
-int BplusTree::update(int blockid,int slotid,struct iovec *record, size_t iovcnt) {//更新索引主键
+int BplusTree::update(int blockid,int slotid,unsigned char *upbuffer,struct iovec *record, size_t iovcnt) {//更新索引主键
     
     size_t offset = Root::ROOT_SIZE+(blockid-1)*Block::BLOCK_SIZE;
-    //indexfile_.read(offset, (char *)buffer_,Block::BLOCK_SIZE);
-    Block block;block.attach(buffer_);
+    Block block;block.attach(upbuffer);
 
     if(slotid>block.getSlotsNum()-1) {
         std::cout<<"Num Error"<<std::endl;
@@ -382,13 +384,15 @@ int BplusTree::update(int blockid,int slotid,struct iovec *record, size_t iovcnt
     
     unsigned char recordbuffer[Block::BLOCK_SIZE]={0};
     size_t reoffset=block.getSlot(slotid);
-    memcpy(recordbuffer,buffer_+reoffset,2);
+    memcpy(recordbuffer,upbuffer+reoffset,2);
     bool ret= it.decode((char *)recordbuffer, 2);
     length = it.get();
     if (!ret)  {
         std::cout<<" error "<<length<<std::endl;
         return -1;
     }
+
+
     Record updaterecord;
     const unsigned char header=0;
     unsigned char uprecordbuffer[Block::BLOCK_SIZE]={0};
@@ -400,18 +404,30 @@ int BplusTree::update(int blockid,int slotid,struct iovec *record, size_t iovcnt
     if(newlength<=length) {
         memcpy(buffer_+reoffset, (char *)uprecordbuffer,length);
     }
+    return S_OK;
+    /*Record updaterecord;
+    const unsigned char header=0;
+    unsigned char uprecordbuffer[Block::BLOCK_SIZE]={0};
+    updaterecord.attach(uprecordbuffer, Block::BLOCK_SIZE);
+    updaterecord.set(record,(int)iovcnt, &header);
+    int newlength=(int)updaterecord.length();
+    
+
+    //判断是不是能插入，能插入就更新
+    if(newlength<=length) {
+        block.setChecksum();
+        memcpy(upbuffer+reoffset, (char *)uprecordbuffer,newlength);
+        std::cout <<"can insert index "<<newlength<<" "<<length<<std::endl;
+    }
+    //不能删除原来的，调用insert重新插入
     else  {
-        std::cout <<"can not insert "<<newlength<<" "<<length<<std::endl;
+        std::cout <<"can not insert index "<<newlength<<" "<<length<<std::endl;
         remove(block,slotid);
         insert(record,iovcnt,-2,0);
     }
-    return S_OK;
+    return S_OK;*/
 
 }
-int BplusTree::getBrother(int fatherid,int cunrrentid) {
-    
-}
-
 int BplusTree::remove(struct iovec *record, size_t iovcnt) {
 
 
@@ -432,11 +448,7 @@ int BplusTree::remove(Block &block,int slotid) {
     block.setSlot(block.getSlotsNum()-1,0);
     block.setSlotsNum(block.getSlotsNum()-1);
     indexfile_.write(Root::ROOT_SIZE+(block.blockid()-1)*Block::BLOCK_SIZE, (char *) buffer_, Block::BLOCK_SIZE);
-    //删除完需要判断是否<50%,如果小于，那么需要向兄弟节点借一个节点然后更新兄弟节点的索引节点，并更新兄弟节点对应的索引
-    //如果两个都 <50%，就合并两个，删除当前Block对应的索引记录
-    if(block.getSlotsNum()==0) {
-
-    }   
+    //删除时要合并
     return S_OK;
 }
 

@@ -18,11 +18,11 @@ class BplusTree
     int root_;
     size_t IndexBlockCnt;
     size_t level;
-
-    bool init();// init the tree
-    bool adjustafterinsert();//adjust
-    bool adbjustafterdelete();
-    int FindToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> &mystack);//find
+    int findToLeaf(struct iovec *record, size_t iovcnt,std::vector <int> &mystack);//find
+    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsigned char header);
+    int getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,
+                  unsigned char *recordbuffer,unsigned char *header);
+    int getBrother(int fatherid,int cunrrentid);
 
   public:
     bool isleaf;
@@ -41,22 +41,15 @@ class BplusTree
     }
     ~BplusTree();
 
-    bool isRoot(Block &block);
       
     int create(char *name,RelationInfo &info);
     int open(const char *name);
-    int destroy(const char *name){
-        return S_OK;
-    }
     std::pair<int,int> search(struct iovec *record, size_t iovcnt);
     int insert(struct iovec *record, size_t iovcnt,int change ,int rightid);
     int remove(struct iovec *record, size_t iovcnt);
     int remove(Block &block,int slotid);
     int update(struct iovec *record, size_t iovcnt,struct iovec *newrecord);
     int update(int blockid,int slotid,struct iovec *record, size_t iovcnt);
-
-    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsigned char header);
-    int getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer,unsigned char *header);
 
 };
 

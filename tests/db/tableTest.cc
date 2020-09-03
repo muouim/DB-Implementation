@@ -119,6 +119,7 @@ TEST_CASE("db/table.h")
             std::cout<<*(int *)iov[1].iov_base<<std::endl;
             REQUIRE(*(int *)iov[1].iov_base==++i);
             std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<std::endl;
+            //std::cout<<"block "<<it.getblockid()<<" "<<it.getslotid()<<" "<<record.length()<<" "<<(char *)iov[0].iov_base<<std::endl;
         }
     }
     SECTION("insert") {
@@ -136,7 +137,7 @@ TEST_CASE("db/table.h")
         root.attach(rb);
 
         bool vis[32000+5];
-        srand((unsigned int)time(0));
+        srand((unsigned int)time(0));//rand的范围只有32768
         memset(vis, false, sizeof(vis));
 
         for(int i=1;i<=32000;i++){
@@ -165,8 +166,6 @@ TEST_CASE("db/table.h")
             record[2].iov_base =(int *)&a[1];
             record[2].iov_len = sizeof(int);
             unsigned char header=0;    
-            //载入record
-
             table.insert(record,3);
         }
 
@@ -204,8 +203,10 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        for(int i=0;i<32000;i++){
+        for(int i=1;i<=40000;i++){
             //if(i==2)continue;
+            std::cout << i <<std:: endl;
+
             char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
             bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
             bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
@@ -216,15 +217,13 @@ TEST_CASE("db/table.h")
             record[0].iov_base =temp1;
             record[0].iov_len =strlen(temp1);
             int a[1024];
-            a[0]=32000-i;
+            a[0]=40000-i+1;//i
             record[1].iov_base =(int *)&a[0];
             record[1].iov_len = sizeof(int);
             a[1]=90;
             record[2].iov_base =(int *)&a[1];
             record[2].iov_len = sizeof(int);
             unsigned char header=0;    
-            //载入record
-
             table.insert(record,3);
         }
         /*for(int i=2;i<3;i++){
@@ -275,36 +274,35 @@ TEST_CASE("db/table.h")
         unsigned char rb[Root::ROOT_SIZE];
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         root.attach(rb);
-
-        unsigned char buffer[Block::BLOCK_SIZE];
-        unsigned int first = root.getHead();
-        REQUIRE(first==1);
-        size_t offset = (first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
-        table.datafile_.read(offset, (char *) buffer, Block::BLOCK_SIZE);
     
-        REQUIRE(table.remove(1,1)==S_OK);
-        REQUIRE(table.remove(1,5)==S_OK);
-        
-        table.datafile_.read(offset, (char *) buffer, Block::BLOCK_SIZE);
-        Block block;
-        block.attach(buffer);
-        REQUIRE(block.getGarbage()==5);
-        REQUIRE(block.getSlotsNum()==1);
+        for(int i=500;i<=600;i++){
+
+            std::cout << i <<std:: endl;
+            char temp1[476]="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =strlen(temp1);
+            int a[1024];
+            a[0] = i;
+
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+            std::pair<int,int>p=table.findkey(record,3);
+            REQUIRE(table.remove(p.first,p.second)==S_OK);
+        }
     }
     SECTION("update") {
 
-        std::string temp="xiaobbbbbbbbbbbbb";
-        iovec record[3];
-		record[0].iov_base =(char *)temp.c_str();
-		record[0].iov_len =temp.length();
-        int a[3];
-        a[0]=1002;
-        record[1].iov_base = (int *)&a[0];
-        record[1].iov_len = sizeof(int);
-        a[1]=70;
-        record[2].iov_base =(int *)&a[0];
-        record[2].iov_len =sizeof(int);  
-        unsigned char header=0;    
         //载入record
         Table table;
         unsigned char rb[Root::ROOT_SIZE];
@@ -314,15 +312,25 @@ TEST_CASE("db/table.h")
         table.datafile_.read(0, (char *)rb, Root::ROOT_SIZE);
         Root root;
         root.attach(rb);
-        table.update(8,11,record,3);
+        for(int i=200;i<=300;i++){
+            std::cout << i <<std:: endl;
+            char temp1[40]="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            iovec record[3];
+            record[0].iov_base =temp1;
+            record[0].iov_len =strlen(temp1);
+            int a[1024];
+            a[0] = i;
 
-        unsigned char buffer[Block::BLOCK_SIZE];
-        unsigned int first = root.getHead();
-        size_t offset = (first - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
-        table.datafile_.read(offset, (char *) buffer, Block::BLOCK_SIZE);
-        Block block;
-        block.attach(buffer);
-        REQUIRE(block.getGarbage()==6);
+            record[1].iov_base =(int *)&a[0];
+            record[1].iov_len = sizeof(int);
+            a[1]=90;
+            record[2].iov_base =(int *)&a[1];
+            record[2].iov_len = sizeof(int);
+            unsigned char header=0;    
+            //载入record
+            std::pair<int,int>p=table.findkey(record,3);
+            REQUIRE(table.update(p.first,p.second,record,3)==S_OK);
+        }
     }  
     SECTION("find") {
 

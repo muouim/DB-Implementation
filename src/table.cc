@@ -97,7 +97,7 @@ int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
         std::pair<unsigned short,struct iovec>p(block.getSlot(i),iov_[getinfo.key]);
         keys.push_back(p);
     }
-    std::cout <<"____________"<<std::endl;
+    //std::cout <<"____________"<<std::endl;
     for(int i = 0; i <block.getSlotsNum(); ++i) 
         keys[i].second.iov_base=base[i];
 
@@ -105,13 +105,29 @@ int Table::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) {
     int tempslotid=0;
     for(int i=0; i<block.getSlotsNum(); i++) {
         block.setSlot(i,keys[i].first);
-        std::cout <<"key:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
+        //std::cout <<"key:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
         tempslotid++;
     }
     for(int i = 0; i <block.getSlotsNum(); i++) delete[] base[i];
     delete []iov_;
     delete[] base;
 
+    return S_OK;
+}
+
+
+int Table::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer) {
+
+    memcpy(recordbuffer,tmpbuffer+offset,2);
+    size_t length = 0;Integer it;Record record_;
+    bool tempret = it.decode((char *) recordbuffer, 2);
+        //if (!tempret) return false;
+    length = it.get();
+    unsigned char header=0;
+    memcpy(recordbuffer,tmpbuffer+offset,length);
+
+    record_.attach(recordbuffer, unsigned short(length));
+    record_.ref(iov,(int)iovcnt, &header);
     return S_OK;
 }
 
@@ -231,20 +247,6 @@ int Table::insert(struct iovec *record, size_t iovcnt) {//调整索引block主�
     //std::cout <<"Head "<<block.getSlot(0)<<" "<<std::endl;
     return S_OK;
 }
-int Table::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer) {
-
-    memcpy(recordbuffer,tmpbuffer+offset,2);
-    size_t length = 0;Integer it;Record record_;
-    bool tempret = it.decode((char *) recordbuffer, 2);
-        //if (!tempret) return false;
-    length = it.get();
-    unsigned char header=0;
-    memcpy(recordbuffer,tmpbuffer+offset,length);
-
-    record_.attach(recordbuffer, unsigned short(length));
-    record_.ref(iov,(int)iovcnt, &header);
-    return S_OK;
-}
 
 int Table::update(int blockid,int slotid,struct iovec *record, size_t iovcnt) {
     //TODO:定位到对应record
@@ -271,49 +273,55 @@ int Table::update(int blockid,int slotid,struct iovec *record, size_t iovcnt) {
     Record updaterecord;
     const unsigned char header=0;
     unsigned char uprecordbuffer[Block::BLOCK_SIZE]={0};
-    updaterecord.attach(uprecordbuffer, unsigned short(length));
+    updaterecord.attach(uprecordbuffer, Block::BLOCK_SIZE);
     updaterecord.set(record,(int)iovcnt, &header);
-    int newlength=(int)updaterecord.length();
-
+    int newlength = (int) updaterecord.length();
+    
     //判断是不是能插入，能插入就更新
     if(newlength<=length) {
         block.setChecksum();
-        datafile_.write(offset+reoffset, (char *)uprecordbuffer,length);
-        datafile_.read(offset, (char *)buffer_,Block::BLOCK_SIZE);
-        block.attach(buffer_);
-        sortSlots(block,(int)iovcnt,buffer_);
-        datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
-        std::cout <<block.getSlot(0)<<" "<<std::endl;
+        datafile_.write(offset+reoffset, (char *)uprecordbuffer,newlength);
+        std::cout <<"can insert "<<newlength<<" "<<length<<std::endl;
     }
     //不能删除原来的，调用insert重新插入
     else  {
-        unsigned char header=0;
+        std::cout <<"can not insert "<<newlength<<" "<<length<<std::endl;
         remove(blockid,slotid);
         insert(record,iovcnt);
     }
     return S_OK;
 }
+int Table::getBrother(int fatherid,int cunrrentid) {
+    //向兄弟节点借一个节点然后更新兄弟节点的索引节点
+    //如果非最右节点，找next，如果是最右节点，找前一个
+    return S_OK;
+}
 int Table::remove(int blockid,int slotid) {//调整索引block主键
         
-    //TODO:写到garbage，替换record记录长度前2B，形成链表，新删除的写入头部，替换原来头部record记录长度前2B
+    //写到garbage，替换record记录长度前2B，形成链表，新删除的写入头部，替换原来头部record记录长度前2B
     datafile_.read(Root::ROOT_SIZE+(blockid-1)*Block::BLOCK_SIZE, (char *)buffer_,Block::BLOCK_SIZE);
 
     Block block;
     block.attach(buffer_);
     if(slotid>block.getSlotsNum()-1)return -1;
+    //如果删除是Block内的第一个记录需要更新对于的索引记录
+    
+    //if(slotid==block.getSlotsNum()-1)update()
     unsigned short offset = block.getSlot(slotid);
     unsigned short temp= block.getGarbage();
     memcpy(buffer_ + offset + 2, &temp, sizeof(temp));
     block.setGarbage(slotid);
     
     //TODO:slots 重新排序，向前挤压
-    for(int i=slotid-1;i<block.getSlotsNum()-1;i++) {
+    for(int i=slotid;i<block.getSlotsNum()-1;i++) {
         block.setSlot(i,block.getSlot(i+1));
     }
     block.setSlot(block.getSlotsNum()-1,0);
     block.setSlotsNum(block.getSlotsNum()-1);
     datafile_.write(Root::ROOT_SIZE+(blockid-1)*Block::BLOCK_SIZE, (char *) buffer_, Block::BLOCK_SIZE);
 
+    //删除完需要判断是否<50%,如果小于，那么需要向兄弟节点借一个节点然后更新兄弟节点的索引节点，并更新兄弟节点对应的索引
+    //如果两个都 <50%，就合并两个，删除当前Block对应的索引记录
     if(block.getSlotsNum()==0) {
 
     }   
@@ -383,6 +391,8 @@ std::pair<int,int> Table::findkey(struct iovec *key,int iovcnt){
     }
     std::pair<int,int> p(block.blockid(),slotid_);
     delete []iov_;
+    delete []indexiov_;
+
     return p;
 }
     

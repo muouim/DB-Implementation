@@ -121,6 +121,9 @@ class Table
     unsigned char *buffer_; // block，TODO: 缓冲模块
     unsigned char *rb;
     unsigned char *indexrb;
+    int getRecord(struct iovec *iov, size_t offset,size_t iovcnt, unsigned char *tmpbuffer,unsigned char *recordbuffer);
+    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) ;
+    int getBrother(int fatherid,int cunrrentid);//获取
 
   public:
     // 打开一张表
@@ -139,16 +142,7 @@ class Table
       std::cout<<"____________"<<std::endl;
     }
     ~Table() {
-      /*Block block;
-      block.attach(buffer_);
-      block.setChecksum();
-      std::cout<<"block id: "<<block.blockid()<<std::endl;
-      std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup("test.dat");
-      db::RelationInfo getinfo;
-      getinfo=ret_.first->second;
-      if(block.blockid()>0)sortSlots(block,(int)getinfo.count);
- 
-      datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
+
       free(buffer_); 
       free(rb); 
       free(indexrb); 
@@ -161,10 +155,6 @@ class Table
     int update(int blockid,int slotid,struct iovec *record, size_t iovcnt);
     int remove(int blockid,int slotid);
 
-
-    int getRecord(struct iovec *iov, size_t offset,size_t iovcnt, unsigned char *tmpbuffer,unsigned char *recordbuffer);
-
-    int sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer) ;
     std::pair<int,int> findkey(struct iovec *key,int iovcnt);
     // begin, end
     iterator begin() {
@@ -212,8 +202,7 @@ class Table
       it_.block_.attach(this->buffer_);
       return it_;
     }
-
-
+    
     iterator end(int Iblockid) {
       Root root_;
       unsigned char *rootbuffer= new unsigned char[Root::ROOT_SIZE];
