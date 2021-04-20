@@ -14,7 +14,6 @@ namespace db {
 // TODO: 加上log
 std::pair<size_t, size_t> Record::size(const iovec *iov, int iovcnt)
 {
-
     size_t iovoff=1; //iov偏移量
     size_t tot = 0; //总长度
     size_t head = 0; //head位置
@@ -30,21 +29,6 @@ std::pair<size_t, size_t> Record::size(const iovec *iov, int iovcnt)
     tot += it.size();
     head += it.size();
     return std::pair<size_t, size_t>(tot,head);
-
-    /*size_t s1 = 0, s2 = 0;
-
-    Integer it;
-    for (int i = 0; i < iovcnt; ++i) {
-        it.set(iov[i].iov_len);
-        s1 += it.size() + iov[i].iov_len;
-        s2 += it.size();
-    }
-    s1 += HEADER_SIZE; // header
-    it.set(s1);
-    s1 += it.size(); // 整个记录长度
-    s2 += it.size(); // header偏移量
-
-    return std::pair<size_t, size_t>(s1, s2);*/
 }
 
 size_t Record::set(const iovec *iov, int iovcnt, const unsigned char *header)
@@ -69,6 +53,7 @@ size_t Record::set(const iovec *iov, int iovcnt, const unsigned char *header)
     size_t len = HEADER_SIZE;
     for (int i = 0; i < iovcnt; ++i)
         len += iov[i].iov_len; // 计算总长
+    
     // 逆序输出
     for (int i = iovcnt; i > 0; --i) {
         len -= iov[i - 1].iov_len;

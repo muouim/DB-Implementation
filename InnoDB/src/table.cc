@@ -13,16 +13,20 @@ std::string tablename("test.dat");
 
 namespace db {
 int Table::create(char *name, RelationInfo &info)
-{ //创建schema
+{ 
+    //创建schema
     info.file = datafile_;
     return gschema.create(name, info);
 }
 int Table::open(const char *name)
-{ //查找schema
+{ 
+    //查找schema
     gschema.open();
     std::pair<Schema::TableSpace::iterator, bool> ret = gschema.lookup(name);
     gschema.load(ret.first);
+    
     if (!ret.second) return EINVAL;
+    
     int ret_ = datafile_.open(name);
     unsigned long long length;
     ret_ = datafile_.length(length);
@@ -59,27 +63,26 @@ int Table::open(const char *name)
     return S_OK;
 }
 
-bool compare(
-    std::pair<unsigned short, struct iovec> x,
-    std::pair<unsigned short, struct iovec> y)
+bool compare(std::pair<unsigned short, struct iovec> x, std::pair<unsigned short, struct iovec> y)
 {
     std::pair<Schema::TableSpace::iterator, bool> ret_ =
         gschema.lookup(tablename.c_str());
+    
     db::RelationInfo getinfo;
     getinfo = ret_.first->second;
-    DataType *dtype =
-        findDataType(getinfo.fields[getinfo.key].datatype.c_str());
+    DataType *dtype = findDataType(getinfo.fields[getinfo.key].datatype.c_str());
+    
     return dtype->compare(
         x.second.iov_base,
         y.second.iov_base,
         x.second.iov_len,
         y.second.iov_len);
 }
+
 int Table::sortSlots(Block &block, int iovcnt)
 {
     //载入relationinfo
-    std::pair<Schema::TableSpace::iterator, bool> ret_ =
-        gschema.lookup(tablename.c_str());
+    std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(tablename.c_str());
     db::RelationInfo getinfo;
     getinfo = ret_.first->second;
 
@@ -96,8 +99,7 @@ int Table::sortSlots(Block &block, int iovcnt)
 
         base[i] = new char[iov_[getinfo.key].iov_len];
         memcpy(base[i], iov_[getinfo.key].iov_base, iov_[getinfo.key].iov_len);
-        std::pair<unsigned short, struct iovec> p(
-            block.getSlot(i), iov_[getinfo.key]);
+        std::pair<unsigned short, struct iovec> p(block.getSlot(i), iov_[getinfo.key]);
         keys.push_back(p);
     }
 
@@ -110,6 +112,7 @@ int Table::sortSlots(Block &block, int iovcnt)
         block.setSlot(tempslotid, keys[i].first);
         tempslotid++;
     }
+
     for (int i = 0; i < block.getSlotsNum(); i++)
         delete[] base[i];
     
@@ -126,12 +129,10 @@ int Table::insert(struct iovec *record, size_t iovcnt)
     //读取root
     Root root;
     root.attach(rb);
-    std::pair<Schema::TableSpace::iterator, bool> ret_ =
-        gschema.lookup(tablename.c_str());
+    std::pair<Schema::TableSpace::iterator, bool> ret_ = gschema.lookup(tablename.c_str());
     db::RelationInfo getinfo;
     getinfo = ret_.first->second;
-    DataType *dtype = findDataType(
-        getinfo.fields[getinfo.key].datatype.c_str());
+    DataType *dtype = findDataType(getinfo.fields[getinfo.key].datatype.c_str());
 
     unsigned char newbuffer[Block::BLOCK_SIZE];
     unsigned char prebuffer[Block::BLOCK_SIZE];
@@ -150,16 +151,15 @@ int Table::insert(struct iovec *record, size_t iovcnt)
     struct iovec *iov_ = new struct iovec[iovcnt];
 
     int previous_id = 0;
+    
     //找对应范围的block插入record
     while (block.blockid() == root.getHead() || block.getNextid() != 0) {
         if (block.getSlotsNum() <= 0) {
             ret = block.allocate(&header, record, (int) iovcnt);
-            offset =
-                Root::ROOT_SIZE + (block.blockid() - 1) * Block::BLOCK_SIZE;
+            offset = Root::ROOT_SIZE + (block.blockid() - 1) * Block::BLOCK_SIZE;
             break;
         }
-        unsigned short reoffset =
-            block.getSlot(block.getSlotsNum() - 1); //溢出问题
+        unsigned short reoffset = block.getSlot(block.getSlotsNum() - 1); //溢出问题
         unsigned char recordbuffer[Block::BLOCK_SIZE];
         getRecord(iov_, reoffset, iovcnt, recordbuffer);
         if (!dtype->compare(
@@ -170,8 +170,7 @@ int Table::insert(struct iovec *record, size_t iovcnt)
 
             ret = block.allocate(&header, record, (int) iovcnt); //能插入当前block直接插入，然后截止
             if (ret) {
-                offset =
-                    Root::ROOT_SIZE + (block.blockid() - 1) * Block::BLOCK_SIZE;
+                offset = Root::ROOT_SIZE + (block.blockid() - 1) * Block::BLOCK_SIZE;
                 break;
             }
             reoffset = block.getSlot(0);
@@ -365,11 +364,7 @@ int Table::insert(struct iovec *record, size_t iovcnt)
     datafile_.write(offset, (const char *) buffer_, Block::BLOCK_SIZE);
     return S_OK;
 }
-int Table::getRecord(
-    struct iovec *iov,
-    size_t offset,
-    size_t iovcnt,
-    unsigned char *recordbuffer)
+int Table::getRecord(struct iovec *iov, size_t offset, size_t iovcnt, unsigned char *recordbuffer)
 {
     memcpy(recordbuffer, buffer_ + offset, 2);
     size_t length = 0;

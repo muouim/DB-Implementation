@@ -75,7 +75,7 @@ int BplusTree::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsig
 
     size_t reoffset=0;
     std::vector<std::pair<unsigned short,struct iovec>>keys;
-    //std::cout <<"____________"<<std::endl;
+    
     char  **base=new char*[block.getSlotsNum()];
     struct iovec *iov_=new struct iovec[iovcnt];
     unsigned char recordbuffer[Block::BLOCK_SIZE];
@@ -88,13 +88,10 @@ int BplusTree::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsig
     
         base[i]=new char[iov_[getinfo.key].iov_len];
         memcpy(base[i],iov_[getinfo.key].iov_base,iov_[getinfo.key].iov_len);
-        //std::cout <<"base:"<<base[i]<<std::endl;
 
         std::pair<unsigned short,struct iovec>p(block.getSlot(i),iov_[getinfo.key]);
-        //std::cout <<*(int *)p.second.iov_base<<" "<<p.second.iov_len<<std::endl;
         keys.push_back(p);//这里没有问题
     }
-    //std::cout <<"____________"<<std::endl;
     for(int i = 0; i <block.getSlotsNum(); ++i) 
         keys[i].second.iov_base=base[i];
 
@@ -102,15 +99,13 @@ int BplusTree::sortSlots(Block &block,int iovcnt,unsigned char *sortbuffer,unsig
     int tempslotid=0;
     for(int i=0; i<block.getSlotsNum(); i++) {
         block.setSlot(i,keys[i].first);
-        //std::cout <<"Indexkey:"<<*(int *)keys[i].second.iov_base<<" "<<keys[i].first<<std::endl;
         tempslotid++;
     }
     for(int i = 0; i <block.getSlotsNum(); i++) delete[] base[i];
     delete[] iov_;
     delete[] base;
 
-    /*block.setChecksum();
-    datafile_.write(Root::ROOT_SIZE+(block.blockid()-1)* Block::BLOCK_SIZE, (const char *) buffer_, Block::BLOCK_SIZE);*/
+
     return S_OK;
 }
 int BplusTree::getRecord(struct iovec *iov, size_t offset, size_t iovcnt,unsigned char *tmpbuffer,unsigned char *recordbuffer,unsigned char *header) {
@@ -441,18 +436,3 @@ int BplusTree::remove(Block &block,int slotid) {
 }
 
 }
-
-/*
-
-            int garoffset = (garbage - 1) * Block::BLOCK_SIZE + Root::ROOT_SIZE;
-            indexfile_.read(garoffset, (char *) prebuffer, Block::BLOCK_SIZE);
-            db::Block garblock;garblock.attach(prebuffer);
-
-            newblock.clear(1,garbage);//新分裂左block
-
-            if(garblock.getNextid()==0)root.setGarbage(garbage+1);
-            else root.setGarbage(garblock.getNextid());
-
-            root.setGarbage(block.blockid());
-            block.setNextid(garbage);
-*/
